@@ -48,7 +48,7 @@ void blink_task(void *pvParameter)
         if (s_is_connected)
         {
             gpio_set_level(LED_PIN, 1);
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(100));
         }
         else
         {
