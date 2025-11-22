@@ -16,6 +16,7 @@
 
 #include "wifi.h"
 #include "http.h"
+#include "mqtt_cl.h"
 
 static const char *TAG = "MAIN";
 
@@ -39,6 +40,7 @@ void app_main(void)
     
     wifi_init_sta();
 
+    mqtt_app_start();
     
     xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 5, NULL);
 
