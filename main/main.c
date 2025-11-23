@@ -1,6 +1,5 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
-/* BLE */
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_gatt.h"
@@ -15,7 +14,8 @@
 #define HID_SERVICE_UUID 0x1812
 const uint16_t HID_SVC_UUID = 0x1812;
 const uint16_t HID_REPORT_UUID = 0x2A4D;
-// const uint16_t HID_REPORT_UUID = 0x2A22;
+const uint16_t GATT_UUID_BATTERY_SERVICE = 0x180f;
+const uint16_t GATT_UUID_BATTERY_LEVEL = 0x2a19;
 #define HID_REPORT_LEN 8
 #define KEY_MOD_LSHIFT 0x02
 #define KEY_MOD_RSHIFT 0x20
@@ -60,23 +60,17 @@ static int blecent_on_notify(uint16_t conn_handle, uint16_t attr_handle,
         return 0;
     }
 
-    // 1. Copy data to a local buffer so we can inspect it safely
+    // Copy data to a local buffer to inspect it safely
     uint8_t data[32]; // Max buffer size
-    uint16_t len = OS_MBUF_PKTLEN(om);
+    uint16_t len = OS_MBUF_PKTLEN(om);      // get length of data
     if (len > sizeof(data)) len = sizeof(data);
     
-    int rc = os_mbuf_copydata(om, 0, len, data);
+    int rc = os_mbuf_copydata(om, 0, len, data);    // args: src, offset (bytes to skip), len, dst
     if (rc != 0) return 0;
 
-    // 2. DEBUG: Print the raw HEX data
-    printf("RX Data (Len %d): ", len);
-    for(int i=0; i<len; i++) {
-        printf("%02X ", data[i]);
-    }
-    printf("\n");
-
-    // 3. Handle "Report ID" (Byte 0 is ID, Byte 1 is Modifier...)
+    // Handle "Report ID" (Byte 0 is ID, Byte 1 is Modifier...)
     // Many commercial keyboards send 9 bytes: [ID] [Mod] [Res] [Key1]...
+
     uint8_t modifiers = 0;
     uint8_t key_code = 0;
 
@@ -93,11 +87,11 @@ static int blecent_on_notify(uint16_t conn_handle, uint16_t attr_handle,
         return 0; 
     }
 
-    // 4. Print decoded character
+    // Print decoded character
     if (key_code != 0) {
         char decoded_char = hid_to_char(key_code, modifiers);
         if (decoded_char != '\0') {
-            MODLOG_DFLT(INFO, "Key: '%c'\n", decoded_char);
+            MODLOG_DFLT(INFO, "%c", decoded_char);
         }
     }
 
@@ -147,7 +141,7 @@ static void blecent_subscribe(const struct peer *peer){
             val,
             sizeof(val),
             blecent_on_subscribe,   
-            (void *)report_chr);    
+            (void *)report_chr);        // arg passed to callback
             
     if (rc != 0) {
         MODLOG_DFLT(ERROR, "Error: Failed to write CCCD; rc=%d\n", rc);
@@ -160,6 +154,48 @@ err:
     ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM); 
 }
 
+static int blecent_on_battery_read(uint16_t conn_handle, const struct ble_gatt_error *error,
+                                   struct ble_gatt_attr *attr, void *arg)
+{
+    if (error->status != 0) {
+        MODLOG_DFLT(ERROR, "Battery level read FAILED; status=%d\n", error->status);
+        return 0;
+    }
+
+    if (attr->om->om_len == 1) {
+        uint8_t battery_level = *(uint8_t *)attr->om->om_data;  // getting battery level, 1 byte of data
+        
+        MODLOG_DFLT(INFO, "BATTERY LEVEL: %d\n", battery_level);
+    } else {
+        MODLOG_DFLT(WARN, "Received unexpected data length (%d bytes) for Battery Level (expected 1 byte).\n", attr->om->om_len);
+    }
+
+    return 0;
+}
+static void check_battery(const struct peer *peer)
+{
+    const struct peer_chr *chr;
+    int rc;
+
+    chr = peer_chr_find_uuid(peer,      // finding characteristic battery level
+                             BLE_UUID16_DECLARE(GATT_UUID_BATTERY_SERVICE),
+                             BLE_UUID16_DECLARE(GATT_UUID_BATTERY_LEVEL));
+    
+    if (chr == NULL) {
+        MODLOG_DFLT(WARN, "Battery Level characteristic (0x2A19) not found.\n");
+        return;
+    }
+    
+    rc = ble_gattc_read(peer->conn_handle, chr->chr.val_handle,   // init characteristic read
+                        blecent_on_battery_read, NULL);
+    
+    if (rc != 0) {
+        MODLOG_DFLT(ERROR, "Failed to initiate battery read; rc=%d\n", rc);
+    } else {
+        MODLOG_DFLT(INFO, "Battery level read initiated.\n");
+    }
+}
+
 static void blecent_on_disc_completed(const struct peer *peer, int status, void *arg)
 {
     if (status != 0) {
@@ -168,6 +204,7 @@ static void blecent_on_disc_completed(const struct peer *peer, int status, void 
         return;
     }
     MODLOG_DFLT(INFO, "Service discovery complete; status=%d conn_handle=%d\n", status, peer->conn_handle);
+    check_battery(peer);
     blecent_subscribe(peer);
 }
 
@@ -212,10 +249,6 @@ static int blecent_should_connect(const struct ble_gap_disc_desc *disc)
         return 0;
     }
 
-    // <--- CHANGED: Helper to see what devices are around so you can fix TARGET_DEVICE_NAME
-    if (fields.name_len > 0) {
-         MODLOG_DFLT(INFO, "Found Device: %.*s\n", fields.name_len, fields.name);
-    }
 
     int hid_found = 0;
     for (i = 0; i < fields.num_uuids16; i++) {      
@@ -297,7 +330,7 @@ blecent_gap_event(struct ble_gap_event *event, void *arg)
                 return 0;
             }
 
-            // <--- CHANGED: Security must be initiated for commercial keyboards
+            // Security must be initiated for commercial keyboards
             MODLOG_DFLT(INFO, "Initiating Security/Pairing...\n");
             rc = ble_gap_security_initiate(event->connect.conn_handle);
             if (rc != 0) {
@@ -402,10 +435,10 @@ app_main(void)
     ble_hs_cfg.sync_cb = blecent_on_sync;                   
     ble_hs_cfg.store_status_cb = ble_store_util_status_rr;  
 
-    // <--- CHANGED: Configure Security (Bonding)
     // This is required for commercial keyboards to trust the ESP32
     ble_hs_cfg.sm_io_cap = BLE_SM_IO_CAP_NO_IO; // No screen, no keyboard on ESP32
     ble_hs_cfg.sm_bonding = 1;                  // Enable bonding (saving keys)
+                                                // after connection keys will be stored in nvm
     ble_hs_cfg.sm_mitm = 1;                     // Man-in-the-middle protection
     ble_hs_cfg.sm_sc = 1;                       // Secure Connections
     ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
