@@ -447,6 +447,7 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
+    wifi_init_sta();
     mqtt_app_start();
 
     // allocate RAM for nimble and set up an interface between nimble and the physical layer
