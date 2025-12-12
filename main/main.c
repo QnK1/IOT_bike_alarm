@@ -17,13 +17,17 @@
 #include "wifi.h"
 #include "http.h"
 #include "mqtt_cl.h"
+#include "wifi_ap.h"
+#include "blink_manager.h"
+#include "button_monitor.h"
+
 
 static const char *TAG = "MAIN";
 
 
 void app_main(void)
 {
-    
+    xTaskCreate(&button_monitor_task, "button_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
     xTaskCreate(&blink_task, "blink_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
     
     esp_err_t ret = nvs_flash_init();
@@ -34,15 +38,18 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    ESP_ERROR_CHECK(esp_netif_init());                      // Inicjalizacja stosu TCP/IP
+    ESP_ERROR_CHECK(esp_event_loop_create_default());       // Inicjalizacja pętli zdarzeń
     
     ESP_LOGI(TAG, "ESP-WIFI-STATION");
 
+    wifi_ap_init();
     
-    wifi_init_sta();
+    // wifi_init_sta();
 
-    mqtt_app_start();
-    
-    xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 5, NULL);
+    // mqtt_app_start();
+
+    // xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 5, NULL);
 
     
     while(true)
