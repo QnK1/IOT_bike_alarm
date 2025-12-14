@@ -8,7 +8,7 @@
 #include "button_monitor.h"
 
 #define LED_PIN 2
-static const char *TAG = "blink manager";
+// static const char *TAG = "blink manager";
 
 void blink_task(void *pvParameter) 
 {
@@ -21,20 +21,21 @@ void blink_task(void *pvParameter)
             vTaskDelay(pdMS_TO_TICKS(60));
             gpio_set_level(LED_PIN, 0);
             vTaskDelay(pdMS_TO_TICKS(60));
-            ESP_LOGI(TAG, "RESTART BLINK");
         }
         else if (wifi_is_ap_active()) 
         {
             gpio_set_level(LED_PIN, 1);
-            vTaskDelay(pdMS_TO_TICKS(800));
+            for(int i = 0; i < 12 && wifi_is_ap_active(); i++)
+                vTaskDelay(pdMS_TO_TICKS(100));
             gpio_set_level(LED_PIN, 0);
-            vTaskDelay(pdMS_TO_TICKS(200));
-            ESP_LOGI(TAG, "AP ACTIVE");
+            for(int i = 0; i < 2 && wifi_is_ap_active(); i++)
+                vTaskDelay(pdMS_TO_TICKS(100));
         }
         else if (wifi_is_connected())
         {
             gpio_set_level(LED_PIN, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
+            for(int i = 0; i < 2 && wifi_is_connected(); i++)
+                vTaskDelay(pdMS_TO_TICKS(100));
         }
         else
         {

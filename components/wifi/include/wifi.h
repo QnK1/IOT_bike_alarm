@@ -16,7 +16,7 @@
 #ifndef WIFI_H
 #define WIFI_H
 
-void wifi_init_sta(void);
+void wifi_init_sta(char* wifi_ssid, char* wifi_pass);
 bool wifi_is_connected(void);
 void blink_task(void *pvParameter);
 

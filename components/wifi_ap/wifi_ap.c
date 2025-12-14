@@ -9,15 +9,18 @@
 
 static const char *TAG = "WIFI_AP";
 
-// Stałe klucze dla NVS
-#define NVS_NAMESPACE "storage"
+#define NVS_NAMESPACE "storage"     // keys for nvs
 #define KEY_SSID      "wifi_ssid"
 #define KEY_PASS      "wifi_pass"
 
-/* --- HTML STRONY WWW --- */
+#define AP_IP_ADDRESS      "192.168.10.1"
+#define AP_NETMASK         "255.255.255.0"
+#define AP_GATEWAY         "192.168.10.1"
+
+    // website
 const char* html_page = "<html><body><h1>Konfiguracja ESP32</h1><form action='/save' method='POST'>"
                         "SSID: <input name='ssid'><br>PASS: <input name='pass' type='password'><br>"
-                        "<input type='submit' value='Zapisz i Restart'></form></body></html>";
+                        "<input type='submit' value='Zapisz'></form></body></html>";
 
 static EventGroupHandle_t wifi_ap_event_group; 
 #define WIFI_AP_ACTIVE_BIT (1UL << 0)
@@ -38,9 +41,7 @@ void wifi_set_ap_active(void){
     if (wifi_ap_event_group != NULL) {
         xEventGroupSetBits(wifi_ap_event_group, WIFI_AP_ACTIVE_BIT); 
     }
-}
-
-/* --- OBSŁUGA PAMIĘCI NVS --- */       
+}   
 
 esp_err_t save_wifi_credentials(const char* ssid, const char* pass) {
     nvs_handle_t handle;
@@ -68,8 +69,6 @@ esp_err_t load_wifi_credentials(char* ssid, char* pass) {
     return err;
 }
 
-/* --- HANDLERY SERWERA --- */
-
 esp_err_t save_post_handler(httpd_req_t *req) {
     char buf[128];
     int ret = httpd_req_recv(req, buf, req->content_len);
@@ -89,7 +88,7 @@ esp_err_t save_post_handler(httpd_req_t *req) {
         ESP_LOGI(TAG, "Zapisywanie: SSID=%s", ssid);
         save_wifi_credentials(ssid, pass);
         
-        httpd_resp_send(req, "Zapisano. Restartuje...", HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send(req, "Zapisano ustawienia.", HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000));
         esp_restart(); // Restartujemy, aby wejść w tryb STA
     }
@@ -98,36 +97,50 @@ esp_err_t save_post_handler(httpd_req_t *req) {
 
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    // html_page to ten twój długi string z formularzem
-    extern const char* html_page; 
-    
-    // Wysyłamy go do przeglądarki użytkownika
     return httpd_resp_send(req, html_page, HTTPD_RESP_USE_STRLEN);
 }
 
 void start_ap_server(void) {
     wifi_set_ap_active();
-    esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
+    // Tworzymy domyślny interfejs, dostajemy jego uchwyt
+    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+    esp_netif_ip_info_t ip_info;
+    
+    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(ap_netif)); // Zatrzymujemy domyślny DHCP Client (choć w AP jest to serwer, bezpieczniej jest to zrobić)
+    ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif)); // ZATRZYMANIE DOMYŚLNEGO DHCP SERVERA AP
 
-    wifi_config_t ap_cfg = { .ap = { .ssid = "ESP32_Config", .channel = 1, .authmode = WIFI_AUTH_OPEN, .max_connection = 2 } };
+    // Ustawienie statycznych adresów IP
+    IP4_ADDR(&ip_info.ip, 192, 168, 10, 1);
+    IP4_ADDR(&ip_info.gw, 192, 168, 10, 1);
+    IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
+
+    // Stosujemy statyczną konfigurację
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(ap_netif, &ip_info));
+    
+    // Uruchomienie DHCP Servera AP po ustawieniu statycznego IP
+    ESP_ERROR_CHECK(esp_netif_dhcps_start(ap_netif));
+    
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    wifi_config_t ap_cfg = { .ap = { .ssid = "ESP32_Config", .channel = 1, .authmode = WIFI_AUTH_OPEN, .max_connection = 1 } };
     esp_wifi_set_mode(WIFI_MODE_AP);
     esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
     esp_wifi_start();
 
-    httpd_handle_t server = NULL;
+    httpd_handle_t server = NULL;   
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+
 if (httpd_start(&server, &config) == ESP_OK) {
-        // Konfiguracja dla GET /
+        // Konfiguracja dla GET
         httpd_uri_t uri_get = {
             .uri      = "/",
             .method   = HTTP_GET,
-            .handler  = root_get_handler // przekazujesz nazwę funkcji
+            .handler  = root_get_handler
         };
         httpd_register_uri_handler(server, &uri_get);
 
-        // Konfiguracja dla POST /save (tę funkcję powinieneś już mieć)
+        // Konfiguracja dla POST
         httpd_uri_t uri_post = {
             .uri      = "/save",
             .method   = HTTP_POST,
@@ -138,6 +151,7 @@ if (httpd_start(&server, &config) == ESP_OK) {
 }
 
 void wifi_ap_init(void) {
+    
     if (wifi_ap_event_group == NULL) {
         wifi_ap_event_group = xEventGroupCreate();
     }
@@ -146,10 +160,9 @@ void wifi_ap_init(void) {
     if (load_wifi_credentials(ssid, pass) == ESP_OK) {
         wifi_set_ap_inactive();
         ESP_LOGI(TAG, "Znaleziono dane w NVS. Lacze z %s...", ssid);
-        // Tutaj wywołaj swoją poprzednią funkcję wifi_init_sta() przekazując jej ssid i pass
+        wifi_init_sta(ssid, pass);
     } else {
         ESP_LOGW(TAG, "Brak danych w NVS. Startuje tryb konfiguracji (AP)...");
-
         start_ap_server();
     }
 }

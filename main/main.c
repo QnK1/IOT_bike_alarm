@@ -41,16 +41,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());                      // Inicjalizacja stosu TCP/IP
     ESP_ERROR_CHECK(esp_event_loop_create_default());       // Inicjalizacja pętli zdarzeń
     
-    ESP_LOGI(TAG, "ESP-WIFI-STATION");
+    ESP_LOGI(TAG, "EPS-WIFI-CONFIG");
 
     wifi_ap_init();
-    
-    // wifi_init_sta();
-
-    // mqtt_app_start();
-
-    // xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 5, NULL);
-
     
     while(true)
     {
