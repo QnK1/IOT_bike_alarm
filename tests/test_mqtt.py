@@ -7,7 +7,7 @@ BROKER = "10.85.58.210"
 PORT = 1883
 
 # Temat subskrypcji z użyciem znaków wieloznacznych (wildcards):
-# '+' oznacza pojedynczy poziom w hierarchii tematu (np. system_iot/user_001/esp32_real/acc)
+# '+' oznacza pojedynczy poziom w hierarchii tematu (system_iot/user_id/device_id/sensor)
 TOPIC_SUBSCRIBE = "system_iot/+/+/+"
 
 # Funkcja wywoływana po nawiązaniu połączenia z brokerem

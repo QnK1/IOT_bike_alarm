@@ -171,3 +171,9 @@ pytest_embedded_log/
 
 # idf-component-manager output
 dependencies.lock
+
+# VS Code settings
+vscode/
+
+# clang
+.clangd
