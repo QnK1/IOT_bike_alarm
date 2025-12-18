@@ -35,14 +35,21 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
     
     mpu6050_data_t sensor_data;
-    // mpu6050_offsets_t offsets; // Do prezentacji kalibracji
+    mpu6050_offsets_t offsets;
+
+    mpu6050_config_t my_mpu_config = {
+        .scl_io = 22,
+        .sda_io = 21,
+        .device_addr = 0x68,
+        .i2c_port = I2C_MASTER_NUM_0
+    };
 
     // --- 1. INICJALIZACJA I TEST POŁĄCZENIA ---
     ESP_LOGI(TAG, "=================================================");
     ESP_LOGI(TAG, "ETAP 1: Inicjalizacja i Test Połączenia");
     ESP_LOGI(TAG, "=================================================");
     
-    ESP_ERROR_CHECK(mpu6050_init());
+    ESP_ERROR_CHECK(mpu6050_init(&my_mpu_config));
 
     if (mpu6050_test_connection()) {
         ESP_LOGI(TAG, "MPU-6050 wykryty poprawnie! Adres: 0x68.");

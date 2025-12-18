@@ -26,6 +26,9 @@
 
 static const char *TAG = "MPU6050";
 
+static uint8_t s_device_addr = 0x68;
+static int s_i2c_port = 0;
+
 // Zmienne statyczne przechowujące aktualny dzielnik (skalę)
 static float s_accel_scale = 16384.0f;
 static float s_gyro_scale = 131.0f;
@@ -38,7 +41,7 @@ static esp_err_t mpu6050_write_byte(uint8_t reg_addr, uint8_t data) {
     // Start komunikacji
     i2c_master_start(cmd);
     // Adres urządzenia + bit zapisu (0)
-    i2c_master_write_byte(cmd, (MPU6050_ADDR << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, (s_device_addr << 1) | I2C_MASTER_WRITE, true);
     // Adres rejestru, do którego chcemy pisać
     i2c_master_write_byte(cmd, reg_addr, true);
     // Dane do zapisania
@@ -47,7 +50,7 @@ static esp_err_t mpu6050_write_byte(uint8_t reg_addr, uint8_t data) {
     i2c_master_stop(cmd);
 
     // Wykonanie komendy
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(s_i2c_port, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 
     return ret;
@@ -60,12 +63,12 @@ static esp_err_t mpu6050_read_bytes(uint8_t reg_addr, uint8_t *data, size_t len)
 
     // KROK 1: Wskazanie rejestru, od którego chcemy czytać
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (MPU6050_ADDR << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, (s_device_addr << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd, reg_addr, true);
 
     // KROK 2: Restart i faktyczny odczyt
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (MPU6050_ADDR << 1) | I2C_MASTER_READ, true);
+    i2c_master_write_byte(cmd, (s_device_addr << 1) | I2C_MASTER_READ, true);
 
     // Czytamy len-1 bajtów z ACK, ostatni bajt z NACK (koniec transmisji)
     if (len > 1) {
@@ -76,28 +79,29 @@ static esp_err_t mpu6050_read_bytes(uint8_t reg_addr, uint8_t *data, size_t len)
     
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(s_i2c_port, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 
     return ret;
 }
 
-esp_err_t mpu6050_init(void) {
-    int i2c_master_port = I2C_MASTER_NUM;
+esp_err_t mpu6050_init(const mpu6050_config_t *conf) {
+    s_device_addr = conf->device_addr;
+    s_i2c_port = conf->i2c_port;
 
-    i2c_config_t conf = {
+    i2c_config_t i2c_conf = {
         .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_MASTER_SDA_IO,
-        .scl_io_num = I2C_MASTER_SCL_IO,
+        .sda_io_num = conf->sda_io,
+        .scl_io_num = conf->scl_io,
         .sda_pullup_en = GPIO_PULLUP_ENABLE, // Wewnętrzne pull-upy
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ
     };
 
-    esp_err_t err = i2c_param_config(i2c_master_port, &conf);
+    esp_err_t err = i2c_param_config(s_i2c_port, &i2c_conf);
     if(err != ESP_OK) return err;
 
-    err = i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    err = i2c_driver_install(s_i2c_port, i2c_conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
     if(err != ESP_OK) return err;
 
     ESP_LOGI(TAG, "I2C zainicjowane. Wybudzanie MPU...");

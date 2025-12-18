@@ -8,8 +8,16 @@
 // --- Konfiguracja I2C ---
 #define I2C_MASTER_SCL_IO           22      // GPIO dla zegara (SCL)
 #define I2C_MASTER_SDA_IO           21      // GPIO dla danych (SDA)
-#define I2C_MASTER_NUM              0       // Numer portu I2C
+#define I2C_MASTER_NUM_0            0       // Numer portu I2C
+#define I2C_MASTER_NUM_1            1       // Numer portu I2C
 #define I2C_MASTER_FREQ_HZ          400000  // Częstotliwość 400kHz
+
+typedef struct {
+    int scl_io;           // Numer pinu SCL
+    int sda_io;           // Numer pinu SDA
+    uint8_t device_addr;  // Adres I2C (0x68 lub 0x69)
+    int i2c_port;         // Numer portu I2C (0 lub 1)
+} mpu6050_config_t;
 
 // --- Struktury danych ---
 
@@ -48,7 +56,7 @@ typedef enum {
     DLPF_260HZ = 0, // Prawie brak filtrowania (duży szum, szybka reakcja)
     DLPF_184HZ = 1, 
     DLPF_94HZ  = 2, 
-    DLPF_44HZ  = 3, // Średnie filtrowanie 
+    DLPF_44HZ  = 3, 
     DLPF_21HZ  = 4, 
     DLPF_10HZ  = 5, 
     DLPF_5HZ   = 6, // Bardzo mocne filtrowanie (bardzo gładkie dane, wolniejsza reakcja) 
@@ -80,7 +88,7 @@ typedef struct {
 /**
  * @brief Inicjalizuje I2C i wybudza MPU-6050
  */
-esp_err_t mpu6050_init(void);
+esp_err_t mpu6050_init(const mpu6050_config_t *conf);
 
 /**
  * Sprawdza połączenie.
