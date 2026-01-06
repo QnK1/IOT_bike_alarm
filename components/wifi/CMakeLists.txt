@@ -1,3 +1,3 @@
 idf_component_register(SRCS "wifi.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES esp_wifi driver http)
+                    REQUIRES esp_wifi driver arming_manager)
