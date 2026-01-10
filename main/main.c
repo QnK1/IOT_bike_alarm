@@ -12,6 +12,8 @@
 #include "arming_manager.h"
 #include "mpu_monitor.h"
 #include "alarm_runner.h"
+#include "gps.h"
+#include "battery.h"
 
 void app_main(void)
 {
@@ -23,7 +25,7 @@ void app_main(void)
     
     // Start sensor and alarm tasks
     xTaskCreate(&mpu_monitor_task, "mpu_mon", 4096, NULL, 5, NULL);
-    xTaskCreate(&alarm_runner_task, "alarm_run", 2048, NULL, 5, NULL);
+    xTaskCreate(&alarm_runner_task, "alarm_run", 4096, NULL, 5, NULL);
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -34,6 +36,12 @@ void app_main(void)
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    gps_init(); 
+    
+    // --- Battery Init ---
+    battery_init();
+    xTaskCreate(&battery_monitor_task, "bat_mon", 2048, NULL, 1, NULL); // Low priority (1)
 
     wifi_ap_init(); 
 }
