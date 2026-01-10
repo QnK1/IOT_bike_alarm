@@ -31,6 +31,26 @@ void alarm_runner_task(void *pvParameter)
                          coords.latitude, 
                          coords.longitude,
                          coords.satellites);
+
+                    char payload[128];
+                    snprintf(payload, sizeof(payload),
+                        "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
+                        coords.latitude,
+                        coords.longitude,
+                        coords.satellites
+                    );
+
+                    esp_mqtt_client_publish(
+                        client,
+                        "system_iot/user_001/esp32/gps",
+                        payload,
+                        0,
+                        1,
+                        0
+                    );
+
+                    ESP_LOGI(TAG, "MQTT Sent: %s", payload);
+
             } else {
                 // Log searching status
                 ESP_LOGW(TAG, "ALARM ACTIVE: Searching for satellites... (Visible: %d)", coords.satellites);
