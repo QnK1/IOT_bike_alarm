@@ -15,6 +15,8 @@
 #include "gps.h"
 #include "battery.h"
 
+static const char *TAG = "MAIN";
+
 void app_main(void)
 {
     arming_init();
@@ -84,4 +86,6 @@ void app_main(void)
     xTaskCreate(&battery_monitor_task, "bat_mon", 2048, NULL, 1, NULL); // Low priority (1)
 
     wifi_ap_init(); 
+
+    mqtt_app_start();
 }
