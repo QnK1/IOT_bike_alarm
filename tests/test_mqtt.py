@@ -2,7 +2,7 @@ import paho.mqtt.client as mqtt
 import datetime
 
 # Adres IP brokera MQTT
-BROKER = "127.0.0.1"
+BROKER = "10.85.218.163"
 # Standardowy port dla nieszyfrowanej komunikacji MQTT
 PORT = 1883
 
