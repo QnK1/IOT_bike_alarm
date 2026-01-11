@@ -20,7 +20,7 @@ void app_main(void)
 {
     wifi_ap_init(); 
     mqtt_app_start();
-    
+
     arming_init();
 
     // Start core tasks
@@ -29,7 +29,6 @@ void app_main(void)
 
     // Start sensor and alarm tasks
     xTaskCreate(&mpu_monitor_task, "mpu_mon", 4096, NULL, 5, NULL);
-    xTaskCreate(&alarm_runner_task, "alarm_run", 2048, NULL, 5, NULL);
     xTaskCreate(&alarm_runner_task, "alarm_run", 4096, NULL, 5, NULL);
 
     esp_err_t ret = nvs_flash_init();
