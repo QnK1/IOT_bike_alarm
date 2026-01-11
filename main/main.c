@@ -18,6 +18,9 @@
 
 void app_main(void)
 {
+    wifi_ap_init(); 
+    mqtt_app_start();
+    
     arming_init();
 
     // Start core tasks
@@ -44,8 +47,4 @@ void app_main(void)
     // --- Battery Init ---
     battery_init();
     xTaskCreate(&battery_monitor_task, "bat_mon", 2048, NULL, 1, NULL); // Low priority (1)
-
-    wifi_ap_init(); 
-
-    mqtt_app_start();
 }

@@ -6,6 +6,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "mqtt_cl.h"
 
 static const char *TAG = "BATTERY";
 
@@ -88,6 +89,31 @@ void battery_monitor_task(void *pvParameter) {
         // Warning for low battery
         if (pct < 10) {
             ESP_LOGW(TAG, "BATTERY LOW! Please replace.");
+        }
+
+        // Send data through MQTT
+        if (mqtt_is_connected()) {
+            char payload[128];
+            snprintf(payload, sizeof(payload),
+                "{\"voltage_mv\":%lu,\"percentage\":%d}",
+                mv,
+                pct
+            );
+
+            int msg_id = esp_mqtt_client_publish(
+                mqtt_get_client(),
+                "system_iot/user_001/esp32/battery",
+                payload,
+                0,
+                1,
+                0
+            );
+
+            if (msg_id == -1) {
+                ESP_LOGE(TAG, "Battery MQTT publish failed");
+            } else {
+                ESP_LOGI(TAG, "Battery MQTT sent: %s", payload);
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(BAT_CHECK_PERIOD_MS));
