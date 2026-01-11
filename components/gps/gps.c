@@ -1,13 +1,3 @@
-/*
- * gps.c
- * Implementation for GY-GPS6MU2 / NEO-6M with Low Power Support
- * * CORRECTIONS APPLIED:
- * - Fixed Sleep Logic: ESP32 TX pin is now forced HIGH during sleep 
- * to prevent phantom wake-ups on the GPS module.
- * - Added RX Pull-up on ESP32 side during sleep to prevent noise.
- * - Auto-Sleep: Module enters sleep immediately upon initialization.
- */
-
 #include "gps.h"
 #include <stdio.h>
 #include <string.h>
@@ -34,9 +24,6 @@ static void parse_nmea_line(char *line);
 static float nmea_to_decimal(float nmea_coord, char quadrant);
 static void send_ubx(uint8_t cls, uint8_t id, uint8_t *payload, uint16_t length);
 
-// ==========================================
-//   UBX STRUCTURES
-// ==========================================
 #pragma pack(push, 1)
 
 // UBX-RXM-PMREQ (Power Management Request)
@@ -46,10 +33,6 @@ typedef struct {
 } ubx_rxm_pmreq_t;
 
 #pragma pack(pop)
-
-// ==========================================
-//   SLEEP / WAKE LOGIC (CORRECTED)
-// ==========================================
 
 void gps_sleep(void) {
     ESP_LOGI(TAG, "GPS: Sending Sleep Command...");
@@ -62,15 +45,9 @@ void gps_sleep(void) {
     send_ubx(0x02, 0x41, (uint8_t*)&pmreq, sizeof(pmreq));
     
     // 2. WAIT FOR TX COMPLETE
-    // Ensure the command leaves the ESP32 buffer completely.
     uart_wait_tx_done(GPS_UART_PORT, 200); 
     
-    // 3. FORCE TX HIGH (CRITICAL FIX)
-    // We must detach the pin from the UART peripheral and force it GPIO HIGH.
-    // If we simply float it (INPUT), the voltage drops, and the GPS interprets
-    // this as a "Start Bit", waking itself up immediately.
-    
-    // Detach pins from UART driver
+    // 3. FORCE TX HIGH
     uart_set_pin(GPS_UART_PORT, -1, -1, -1, -1);
 
     // Drive TX High (Idle state)
@@ -84,7 +61,7 @@ void gps_sleep(void) {
     gpio_config(&tx_conf);
     gpio_set_level(GPS_TXD_PIN, 1); 
 
-    // Set RX to Input with Pull-up (prevent ESP32 reading noise)
+    // Set RX to Input with Pull-up
     gpio_config_t rx_conf = {
         .pin_bit_mask = (1ULL << GPS_RXD_PIN),
         .mode = GPIO_MODE_INPUT,
@@ -101,12 +78,9 @@ void gps_wake(void) {
     ESP_LOGI(TAG, "GPS: Waking Up...");
 
     // 1. RECONNECT UART PINS
-    // Restore the hardware connection to the UART driver
     uart_set_pin(GPS_UART_PORT, GPS_TXD_PIN, GPS_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
     // 2. WAKE SEQUENCE (Force Baud Detection)
-    // Sending data triggers the GPS to wake up from Backup mode.
-    // 0xFF (All 1s) with a Start Bit (0) creates edges for the UART.
     uint8_t wake_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF};
     uart_write_bytes(GPS_UART_PORT, (const char*)wake_bytes, sizeof(wake_bytes));
     
@@ -116,10 +90,6 @@ void gps_wake(void) {
     
     ESP_LOGI(TAG, "GPS Awake.");
 }
-
-// ==========================================
-//   STANDARD GPS TASK & INIT
-// ==========================================
 
 static void gps_task(void *pvParameters) {
     uint8_t *data = (uint8_t *) malloc(GPS_RX_BUF_SIZE);
@@ -199,12 +169,8 @@ gps_data_t gps_get_coordinates(void) {
     return result;
 }
 
-// ==========================================
-//   PARSING HELPERS
-// ==========================================
 
 static void parse_nmea_line(char *line) {
-    // We only care about GPGGA (Global Positioning System Fix Data)
     if (strstr(line, "GGA") == NULL) return;
 
     char *token;

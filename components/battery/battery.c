@@ -29,7 +29,7 @@ void battery_init(void) {
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BAT_ADC_CHANNEL, &config));
 
-    // 3. Calibration Setup (Using LINE FITTING for original ESP32)
+    // 3. Calibration Setup
     ESP_LOGI(TAG, "Calibration Scheme: Line Fitting");
     
     adc_cali_line_fitting_config_t cali_config = {
