@@ -53,9 +53,24 @@ void alarm_runner_task(void *pvParameter)
 
                     ESP_LOGI(TAG, "MQTT Sent: %s", payload);
 
+            } else if (!mqtt_is_connected()) {
+                ESP_LOGW(TAG, "MQTT not connected");
+                
             } else {
-                // Log searching status
-                ESP_LOGW(TAG, "ALARM ACTIVE: Searching for satellites... (Visible: %d)", coords.satellites);
+                char payload[64];
+                snprintf(payload, sizeof(payload),
+                        "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
+
+                esp_mqtt_client_publish(
+                    mqtt_get_client(),
+                    "system_iot/user_001/esp32/gps/status",
+                    payload,
+                    0,
+                    0,
+                    0
+                );
+
+                ESP_LOGW(TAG, "MQTT Status Sent: %s", payload);
             }
 
             // 1 second delay between logs/updates

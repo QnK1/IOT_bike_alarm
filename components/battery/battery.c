@@ -114,6 +114,8 @@ void battery_monitor_task(void *pvParameter) {
             } else {
                 ESP_LOGI(TAG, "Battery MQTT sent: %s", payload);
             }
+        } else {
+            ESP_LOGW(TAG, "MQTT not connected");
         }
 
         vTaskDelay(pdMS_TO_TICKS(BAT_CHECK_PERIOD_MS));
