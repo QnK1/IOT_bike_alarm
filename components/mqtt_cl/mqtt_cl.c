@@ -125,4 +125,5 @@ void mqtt_app_start(void)
     );
 
     esp_mqtt_client_start(client);
+    esp_mqtt_client_subscribe(client, "system_iot/user_001/esp32/cmd", 1);
 }
