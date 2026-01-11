@@ -27,35 +27,37 @@ void alarm_runner_task(void *pvParameter)
             // 2. Get Real Coordinates
             gps_data_t coords = gps_get_coordinates();
 
-            if (coords.is_valid && mqtt_is_connected()) {
+            if (coords.is_valid) {
                 // Log valid coordinates (This is where you would eventually send HTTP POST)
                 ESP_LOGE(TAG, "ALARM ACTIVE: Valid Fix! Lat: %.5f, Lon: %.5f, Sats: %d",
                          coords.latitude, 
                          coords.longitude,
                          coords.satellites);
+                    
+                    if (mqtt_is_connected()) {
+                        char payload[128];
+                        snprintf(payload, sizeof(payload),
+                            "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
+                            coords.latitude,
+                            coords.longitude,
+                            coords.satellites
+                        );
 
-                    char payload[128];
-                    snprintf(payload, sizeof(payload),
-                        "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
-                        coords.latitude,
-                        coords.longitude,
-                        coords.satellites
-                    );
+                        esp_mqtt_client_publish(
+                            mqtt_get_client(),
+                            "system_iot/user_001/esp32/gps",
+                            payload,
+                            0,
+                            1,
+                            0
+                        );
 
-                    esp_mqtt_client_publish(
-                        mqtt_get_client(),
-                        "system_iot/user_001/esp32/gps",
-                        payload,
-                        0,
-                        1,
-                        0
-                    );
-
-                    ESP_LOGI(TAG, "MQTT Sent: %s", payload);
+                        ESP_LOGI(TAG, "MQTT Sent: %s", payload);
+                    }
 
             } else if (!mqtt_is_connected()) {
                 ESP_LOGW(TAG, "MQTT not connected");
-                
+
             } else {
                 char payload[64];
                 snprintf(payload, sizeof(payload),
