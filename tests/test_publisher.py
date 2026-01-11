@@ -22,6 +22,7 @@ while True:
             payload = f"x:{round(random.uniform(-1,1),2)},y:{round(random.uniform(-1,1),2)},z:{round(random.uniform(-1,1),2)}"
         
         topic = TOPIC_TEMPLATE.format(sensor=sensor)
-        client.publish(topic, payload)
-        print(f"Published: {topic} -> {payload}")
+        # client.publish(topic, payload)
+        # print(f"Published: {topic} -> {payload}")
+        client.publish("system_iot/user_001/esp32/cmd", "ARM", qos=1)
         time.sleep(1)

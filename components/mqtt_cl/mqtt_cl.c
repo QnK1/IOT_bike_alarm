@@ -1,7 +1,8 @@
 #include "mqtt_client.h"
 #include "mqtt_cl.h"
 #include "esp_log.h"
-
+#include "arming_manager.h"
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_random.h"
@@ -47,11 +48,53 @@ static void mqtt_event_handler(void *handler_args,    // Additional data
             break;
 
         // Broker sent a message about a subscribed topic
-        case MQTT_EVENT_DATA:
-            ESP_LOGI(TAG, "MQTT DATA RECEIVED:");
-            printf("TOPIC: %.*s\n", event->topic_len, event->topic);
-            printf("DATA:  %.*s\n", event->data_len, event->data);
+        case MQTT_EVENT_DATA: {
+            ESP_LOGI(TAG, "MQTT DATA RECEIVED");
+
+            char topic[event->topic_len + 1];
+            char data[event->data_len + 1];
+
+            memcpy(topic, event->topic, event->topic_len);
+            topic[event->topic_len] = '\0';
+
+            memcpy(data, event->data, event->data_len);
+            data[event->data_len] = '\0';
+
+            ESP_LOGI(TAG, "TOPIC: %s", topic);
+            ESP_LOGI(TAG, "DATA: %s", data);
+
+            if (strcmp(topic, "system_iot/user_001/esp32/cmd") == 0) {
+
+                if (strcmp(data, "ARM") == 0) {
+                    set_system_armed(true);
+                }
+                else if (strcmp(data, "DISARM") == 0) {
+                    set_system_armed(false);
+                }
+                else if (strcmp(data, "STATUS") == 0) {
+                    char status[64];
+                    snprintf(status, sizeof(status),
+                        "{\"armed\":%d,\"alarm\":%d}",
+                        is_system_armed(),
+                        is_system_in_alarm()
+                    );
+
+                    esp_mqtt_client_publish(
+                        client,
+                        "system_iot/user_001/esp32/status",
+                        status,
+                        0,
+                        1,
+                        0
+                    );
+                }
+                else {
+                    ESP_LOGW(TAG, "Unknown CMD: %s", data);
+                }
+            }
             break;
+        }
+
 
         // Logging all other events
         default:
