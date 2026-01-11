@@ -5,6 +5,7 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 
+#include "mqtt_cl.h"
 #include "wifi.h"
 #include "wifi_ap.h"
 #include "blink_manager.h"

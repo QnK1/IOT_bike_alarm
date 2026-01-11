@@ -2,7 +2,9 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "arming_manager.h"
-#include "gps.h" // <--- Added
+#include "gps.h"
+#include "mqtt_cl.h"
+#include "mqtt_client.h"
 
 static const char *TAG = "ALARM_RUNNER";
 
@@ -25,7 +27,7 @@ void alarm_runner_task(void *pvParameter)
             // 2. Get Real Coordinates
             gps_data_t coords = gps_get_coordinates();
 
-            if (coords.is_valid) {
+            if (coords.is_valid && mqtt_is_connected()) {
                 // Log valid coordinates (This is where you would eventually send HTTP POST)
                 ESP_LOGE(TAG, "ALARM ACTIVE: Valid Fix! Lat: %.5f, Lon: %.5f, Sats: %d",
                          coords.latitude, 
@@ -41,7 +43,7 @@ void alarm_runner_task(void *pvParameter)
                     );
 
                     esp_mqtt_client_publish(
-                        client,
+                        mqtt_get_client(),
                         "system_iot/user_001/esp32/gps",
                         payload,
                         0,
