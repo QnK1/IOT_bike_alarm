@@ -39,7 +39,10 @@ static void mqtt_event_handler(void *handler_args,    // Additional data
         case MQTT_EVENT_CONNECTED:
             mqtt_connected = true;
             ESP_LOGI(TAG, "MQTT connected!");
-            break;
+            
+            esp_mqtt_client_subscribe(client, "system_iot/user_001/esp32/cmd", 1);
+            ESP_LOGI(TAG, "Subscribed to cmd topic");
+        break;
 
         // Client could not connect to broker
         case MQTT_EVENT_DISCONNECTED:
@@ -109,7 +112,7 @@ void mqtt_app_start(void)
 
     // Initialization of a configuration structure with broker's ip address, username and password
     esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = "mqtt://10.85.58.210:1883",
+        .broker.address.uri = "mqtt://10.85.218.163:1883",
         .credentials.username = "myuser",
         .credentials.authentication.password = "1234",
     };
