@@ -3,6 +3,8 @@
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 #include "wifi.h" 
+#include "mqtt_cl.h"
+#include "mqtt_client.h"
 
 static const char *TAG = "ARMING";
 static EventGroupHandle_t arming_event_group;
@@ -53,10 +55,39 @@ void trigger_system_alarm(void) {
     if (arming_event_group == NULL) return;
     if (is_system_armed()) {
         ESP_LOGE(TAG, "!!! ALARM TRIGGERED !!!");
+
+        if (mqtt_is_connected()) {
+
+            esp_mqtt_client_publish(
+                mqtt_get_client(),
+                "system_iot/user_001/esp32/alarm",
+                "{\"state\":\"START\"}",
+                0,
+                1,
+                0
+            );
+
+            ESP_LOGI(TAG, "MQTT Alarm START sent");
+        }
+
         xEventGroupSetBits(arming_event_group, SYSTEM_ALARM_BIT);
     }
 }
 
 void clear_system_alarm(void) {
     set_system_armed(false);
+
+        if (mqtt_is_connected()) {
+
+        esp_mqtt_client_publish(
+            mqtt_get_client(),
+            "system_iot/user_001/esp32/alarm",
+            "{\"state\":\"STOP\"}",
+            0,
+            1,
+            0
+        );
+
+        ESP_LOGI(TAG, "MQTT Alarm STOP sent");
+    }
 }
