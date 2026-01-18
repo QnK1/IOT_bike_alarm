@@ -90,6 +90,8 @@ void app_main(void)
     } 
     else {
         ESP_LOGI(TAG, ">>> ENTERING NORMAL MODE (UNARMED) <<<");
+
+        ble_config_deinit();
         
         arming_init();
 

@@ -218,3 +218,27 @@ void ble_config_init(void) {
     
     ESP_LOGI(TAG, "BLE Config Mode Initialized");
 }
+
+void ble_config_deinit(void) {
+    // If the controller isn't enabled, don't try to disable it (prevents crashes)
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE) {
+        ESP_LOGW(TAG, "BLE already de-initialized.");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Stopping BLE to save power...");
+    
+    esp_bluedroid_disable();
+    esp_bluedroid_deinit();
+    esp_bt_controller_disable();
+    esp_bt_controller_deinit();
+    
+    // Release the BLE memory back to the heap? 
+    // Usually 'mem_release' can only be called once per boot for a specific mode.
+    // If we plan to re-enable BLE later without reboot, we should NOT release memory.
+    // Since we only re-enable via reboot, we can leave it or release it.
+    // However, esp_bt_controller_mem_release(ESP_BT_MODE_BLE) will prevent BLE from starting again until reboot.
+    esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
+
+    ESP_LOGI(TAG, "BLE De-initialized.");
+}

@@ -3,10 +3,8 @@
 
 #include <stdbool.h>
 
-// Initializes BLE, sets up the GATT server for User ID configuration
 void ble_config_init(void);
-
-// Checks if a User ID is currently saved in NVS
+void ble_config_deinit(void);
 bool is_user_assigned(void);
 
 #endif
