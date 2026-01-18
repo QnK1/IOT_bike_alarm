@@ -5,6 +5,8 @@
 #include "wifi.h" 
 #include "mqtt_cl.h"
 #include "mqtt_client.h"
+#include "lora.h"
+#include "nvs_store.h"
 
 static const char *TAG = "ARMING";
 static EventGroupHandle_t arming_event_group;
@@ -37,34 +39,49 @@ void set_system_armed(bool armed) {
         xEventGroupSetBits(arming_event_group, SYSTEM_ARMED_BIT);
         xEventGroupClearBits(arming_event_group, SYSTEM_ALARM_BIT);
 
-        if (mqtt_is_connected()) {
-            esp_mqtt_client_publish(
-                mqtt_get_client(),
-                "system_iot/user_001/esp32/armed",
-                "{\"state\":\"ARMED\"}",
-                0,
-                1,
-                0
-            );
-            ESP_LOGI(TAG, "MQTT: SYSTEM ARMED sent");
-        }
+        // if (mqtt_is_connected()) {
+        //     esp_mqtt_client_publish(
+        //         mqtt_get_client(),
+        //         "system_iot/user_001/esp32/armed",
+        //         "{\"state\":\"ARMED\"}",
+        //         0,
+        //         1,
+        //         0
+        //     );
+        //     ESP_LOGI(TAG, "MQTT: SYSTEM ARMED sent");
+        // }
+
+        char user[64];
+        nvs_load_user_id(user, 64);
+        char message[256];
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/armed={\"state\":\"ARMED\"}>", user);
+        lora_send((uint8_t*)message, len);
+        ESP_LOGI(TAG, "LORA: SYSTEM ARMED sent");
 
     } else {
         ESP_LOGW(TAG, ">>> SYSTEM DISARMED <<<");
         xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
         wifi_reset_retry_logic(); 
 
-        if (mqtt_is_connected()) {
-            esp_mqtt_client_publish(
-                mqtt_get_client(),
-                "system_iot/user_001/esp32/armed",
-                "{\"state\":\"DISARMED\"}",
-                0,
-                1,
-                0
-            );
-            ESP_LOGI(TAG, "MQTT: SYSTEM DISARMED sent");
-        }
+        // if (mqtt_is_connected()) {
+        //     esp_mqtt_client_publish(
+        //         mqtt_get_client(),
+        //         "system_iot/user_001/esp32/armed",
+        //         "{\"state\":\"DISARMED\"}",
+        //         0,
+        //         1,
+        //         0
+        //     );
+        //     ESP_LOGI(TAG, "MQTT: SYSTEM DISARMED sent");
+        // }
+
+        char user[64];
+        nvs_load_user_id(user, 64);
+        char message[256];
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/armed={\"state\":\"DISARMED\"}>", user);
+        lora_send((uint8_t*)message, len);
+        ESP_LOGI(TAG, "LORA: SYSTEM DISARMED sent");
+
     }
 }
 
@@ -81,19 +98,26 @@ void trigger_system_alarm(void) {
     if (is_system_armed()) {
         ESP_LOGE(TAG, "!!! ALARM TRIGGERED !!!");
 
-        if (mqtt_is_connected()) {
+        // if (mqtt_is_connected()) {
 
-            esp_mqtt_client_publish(
-                mqtt_get_client(),
-                "system_iot/user_001/esp32/alarm",
-                "{\"state\":\"START\"}",
-                0,
-                1,
-                0
-            );
+        //     esp_mqtt_client_publish(
+        //         mqtt_get_client(),
+        //         "system_iot/user_001/esp32/alarm",
+        //         "{\"state\":\"START\"}",
+        //         0,
+        //         1,
+        //         0
+        //     );
 
-            ESP_LOGI(TAG, "MQTT Alarm START sent");
-        }
+        //     ESP_LOGI(TAG, "MQTT Alarm START sent");
+        // }
+
+        char user[64];
+        nvs_load_user_id(user, 64);
+        char message[256];
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/alarm={\"state\":\"START\"}>", user);
+        lora_send((uint8_t*)message, len);
+        ESP_LOGI(TAG, "LORA: SYSTEM DISARMED sent");
 
         xEventGroupSetBits(arming_event_group, SYSTEM_ALARM_BIT);
     }
@@ -102,17 +126,23 @@ void trigger_system_alarm(void) {
 void clear_system_alarm(void) {
     set_system_armed(false);
 
-        if (mqtt_is_connected()) {
+        // if (mqtt_is_connected()) {
 
-        esp_mqtt_client_publish(
-            mqtt_get_client(),
-            "system_iot/user_001/esp32/alarm",
-            "{\"state\":\"STOP\"}",
-            0,
-            1,
-            0
-        );
+        // esp_mqtt_client_publish(
+        //     mqtt_get_client(),
+        //     "system_iot/user_001/esp32/alarm",
+        //     "{\"state\":\"STOP\"}",
+        //     0,
+        //     1,
+        //     0
+        // );
 
-        ESP_LOGI(TAG, "MQTT Alarm STOP sent");
+        char user[64];
+        nvs_load_user_id(user, 64);
+        char message[256];
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/alarm={\"state\":\"STOP\"}>", user);
+        lora_send((uint8_t*)message, len);
+        ESP_LOGI(TAG, "LORA: Alarm STOP sent");
+        
     }
 }

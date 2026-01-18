@@ -6,7 +6,7 @@
 // --- GPS Pin Definitions ---
 #define GPS_TXD_PIN (GPIO_NUM_26)
 #define GPS_RXD_PIN (GPIO_NUM_27)
-#define GPS_UART_PORT (UART_NUM_2)
+#define GPS_UART_PORT (UART_NUM_1)
 #define GPS_BAUD_RATE (9600)
 #define GPS_RX_BUF_SIZE (1024)
 
@@ -36,7 +36,8 @@
 #define LORA_RX_PIN (GPIO_NUM_16)
 #define LORA_M0_PIN (GPIO_NUM_18)  
 #define LORA_M1_PIN (GPIO_NUM_19)
-#define LORA_AUX_PIN (GPIO_NUM_5)
-#define LORA_BAUD_RATE     (9600)
+#define LORA_AUX_PIN        (GPIO_NUM_4)
+#define LORA_UART_PORT      (UART_NUM_2)
+#define LORA_BAUD_RATE      (9600)
 
 #endif // CONFIG_H

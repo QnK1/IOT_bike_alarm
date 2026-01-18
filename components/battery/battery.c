@@ -100,20 +100,23 @@ void battery_monitor_task(void *pvParameter) {
                 pct
             );
 
-            int msg_id = esp_mqtt_client_publish(
-                mqtt_get_client(),
-                "system_iot/user_001/esp32/battery",
-                payload,
-                0,
-                1,
-                0
-            );
+            // int msg_id = esp_mqtt_client_publish(
+            //     mqtt_get_client(),
+            //     "system_iot/user_001/esp32/battery",
+            //     payload,
+            //     0,
+            //     1,
+            //     0
+            // );
 
-            if (msg_id == -1) {
-                ESP_LOGE(TAG, "Battery MQTT publish failed");
-            } else {
-                ESP_LOGI(TAG, "Battery MQTT sent: %s", payload);
-            }
+            char user[64];
+            nvs_load_user_id(user, 64);
+            char message[256];
+            int len = snprintf(message, sizeof(message),
+                "<system_iot/%s/esp32/battery=%s>", user, payload);
+            lora_send((uint8_t*)message, len);
+            ESP_LOGI(TAG, "Battery LORA sent: %s", payload);
+
         } else {
             ESP_LOGW(TAG, "MQTT not connected");
         }

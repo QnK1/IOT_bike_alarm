@@ -34,46 +34,67 @@ void alarm_runner_task(void *pvParameter)
                          coords.longitude,
                          coords.satellites);
                     
-                    if (mqtt_is_connected()) {
-                        char payload[128];
-                        snprintf(payload, sizeof(payload),
-                            "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
-                            coords.latitude,
-                            coords.longitude,
-                            coords.satellites
-                        );
+                    // if (mqtt_is_connected()) {
+                    //     char payload[128];
+                    //     snprintf(payload, sizeof(payload),
+                    //         "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
+                    //         coords.latitude,
+                    //         coords.longitude,
+                    //         coords.satellites
+                    //     );
 
-                        esp_mqtt_client_publish(
-                            mqtt_get_client(),
-                            "system_iot/user_001/esp32/gps",
-                            payload,
-                            0,
-                            1,
-                            0
-                        );
+                    //     esp_mqtt_client_publish(
+                    //         mqtt_get_client(),
+                    //         "system_iot/user_001/esp32/gps",
+                    //         payload,
+                    //         0,
+                    //         1,
+                    //         0
+                    //     );
 
-                        ESP_LOGI(TAG, "MQTT Sent: %s", payload);
-                    }
-
-            } else if (!mqtt_is_connected()) {
-                ESP_LOGW(TAG, "MQTT not connected");
-                ESP_LOGW(TAG, "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
+                    //     ESP_LOGI(TAG, "MQTT Sent: %s", payload);
+                    // }
+                    char user[64];
+                    nvs_load_user_id(user, 64);
+                    char payload[128];
+                    snprintf(payload, sizeof(payload),
+                        "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
+                        coords.latitude,
+                        coords.longitude,
+                        coords.satellites
+                    );
+                    char message[256];
+                    int len = snprintf(message, sizeof(message), 
+                        "<system_iot/%s/esp32/gps=%s>", user, payload
+                    );
+                    lora_send((uint8_t*)message, len);
+                    ESP_LOGI(TAG, "LORA Sent: %s", payload);
 
             } else {
-                char payload[64];
+                // char payload[64];
+                // snprintf(payload, sizeof(payload),
+                //         "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
+
+                // esp_mqtt_client_publish(
+                //     mqtt_get_client(),
+                //     "system_iot/user_001/esp32/gps/status",
+                //     payload,
+                //     0,
+                //     0,
+                //     0
+                // );
+
+                char user[64];
+                nvs_load_user_id(user, 64);
+                char payload[128];
                 snprintf(payload, sizeof(payload),
                         "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
-
-                esp_mqtt_client_publish(
-                    mqtt_get_client(),
-                    "system_iot/user_001/esp32/gps/status",
-                    payload,
-                    0,
-                    0,
-                    0
+                char message[256];
+                int len = snprintf(message, sizeof(message), 
+                    "<system_iot/%s/esp32/gps/status=%s>", user, payload
                 );
-
-                ESP_LOGW(TAG, "MQTT Status Sent: %s", payload);
+                lora_send((uint8_t*)message, len);
+                ESP_LOGW(TAG, "LORA Status Sent: %s", payload);
             }
 
             // 1 second delay between logs/updates
