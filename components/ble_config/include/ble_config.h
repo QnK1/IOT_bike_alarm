@@ -5,6 +5,6 @@
 
 void ble_config_init(void);
 void ble_config_deinit(void);
-bool is_user_assigned(void);
+bool ble_config_is_active(void);
 
 #endif

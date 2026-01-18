@@ -4,7 +4,7 @@
 #include "esp_log.h"
 
 #include "wifi.h"
-#include "wifi_ap.h"
+#include "ble_config.h" // Changed include
 #include "button_monitor.h"
 #include "arming_manager.h"
 
@@ -26,7 +26,7 @@ void blink_task(void *pvParameter)
             continue;
         }
 
-        // PRIORITY 2: SYSTEM RESTARTING (Visual Confirmation)
+        // PRIORITY 2: SYSTEM RESTARTING
         if (esp_is_restarting()){
             gpio_set_level(LED_PIN, 1);
             vTaskDelay(pdMS_TO_TICKS(60));
@@ -46,49 +46,45 @@ void blink_task(void *pvParameter)
                 gpio_set_level(LED_PIN, 1);
                 vTaskDelay(pdMS_TO_TICKS(50));
                 gpio_set_level(LED_PIN, 0);
-                
-                // Wait 2 seconds
                 vTaskDelay(pdMS_TO_TICKS(2000));
             } else {
-                // Stealth Mode (WiFi lost/sleeping):
-                // Very short blip every 5 seconds
+                // Stealth Mode
                 gpio_set_level(LED_PIN, 1);
                 vTaskDelay(pdMS_TO_TICKS(20));
                 gpio_set_level(LED_PIN, 0);
-                
                 vTaskDelay(pdMS_TO_TICKS(5000)); 
             }
         }
-        // PRIORITY 4: UNARMED (Standard Configuration)
+        // PRIORITY 4: UNARMED
         else {
-            if (wifi_is_ap_active()) 
+            // Changed Logic: Check BLE Config Active
+            if (ble_config_is_active()) 
             {
-                // AP Mode: Long ON sequence to indicate "Config Me"
+                // Config Mode: Long ON sequence to indicate "Connect via BLE"
                 gpio_set_level(LED_PIN, 1);
-                // Wait 1.2s, but check status frequently to react to mode changes
+                // Wait 1.2s, but check status frequently
                 for(int i = 0; i < 12; i++) {
-                    if(!wifi_is_ap_active() || is_system_armed()) break;
+                    if(!ble_config_is_active() || is_system_armed()) break;
                     vTaskDelay(pdMS_TO_TICKS(100));
                 }
                 
                 gpio_set_level(LED_PIN, 0);
                 for(int i = 0; i < 2; i++) {
-                    if(!wifi_is_ap_active() || is_system_armed()) break;
+                    if(!ble_config_is_active() || is_system_armed()) break;
                     vTaskDelay(pdMS_TO_TICKS(100));
                 }
             }
             else if (wifi_is_connected())
             {
                 // STA Connected: 200ms ON, 200ms OFF (Slow Blink)
-                // Or Solid ON if preferred, but blink verifies loop is running
                 gpio_set_level(LED_PIN, 1);
                 vTaskDelay(pdMS_TO_TICKS(200));
                 gpio_set_level(LED_PIN, 0);
-                vTaskDelay(pdMS_TO_TICKS(2000)); // Long pause = Healthy connection
+                vTaskDelay(pdMS_TO_TICKS(2000));
             }
             else
             {
-                // STA Connecting / Idle: Regular 200ms Toggle
+                // STA Connecting / Idle
                 gpio_set_level(LED_PIN, 1);
                 vTaskDelay(pdMS_TO_TICKS(200));
                 gpio_set_level(LED_PIN, 0);
