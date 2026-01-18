@@ -36,7 +36,7 @@
 #define LORA_RX_PIN (GPIO_NUM_16)
 #define LORA_M0_PIN (GPIO_NUM_18)  
 #define LORA_M1_PIN (GPIO_NUM_19)
-#define LORA_AUX_PIN (GPIO_NUM_5)
+#define LORA_AUX_PIN (GPIO_NUM_4)
 #define LORA_BAUD_RATE     (9600)
 #define LORA_UART_PORT (UART_NUM_2)
 
