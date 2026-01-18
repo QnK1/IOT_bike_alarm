@@ -1,3 +1,7 @@
 idf_component_register(SRCS "mqtt_cl.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES wifi mqtt)
+                    REQUIRES wifi mqtt lora lwip
+                    EMBED_TXTFILES "certificates/ca.pem"
+                                    "certificates/client.crt"
+                                    "certificates/private.key"
+                    )

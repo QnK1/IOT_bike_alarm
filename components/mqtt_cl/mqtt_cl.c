@@ -6,6 +6,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_random.h"
+#include "lora.h"
+#include "esp_sntp.h"
 
 static const char *TAG = "MQTT_CL";
 
@@ -24,6 +26,25 @@ bool mqtt_is_connected(void)
     return mqtt_connected;
 }
 
+void obtain_time(void) {
+    ESP_LOGI("SNTP", "Obtaining time");
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_init();
+    int retry = 0;
+    const int retry_count = 10;
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count) {
+        ESP_LOGI("SNTP", "Czekam na czas systemowy... (%d/%d)", retry, retry_count);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+    
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    ESP_LOGI("SNTP", "Aktualny czas: %s", asctime(&timeinfo));
+}
+
 // This function is called whenever an event occurs in MQTT
 static void mqtt_event_handler(void *handler_args,    // Additional data 
                                esp_event_base_t base, // Type of an event
@@ -40,7 +61,7 @@ static void mqtt_event_handler(void *handler_args,    // Additional data
             mqtt_connected = true;
             ESP_LOGI(TAG, "MQTT connected!");
             
-            esp_mqtt_client_subscribe(client, "system_iot/user_001/esp32/cmd", 1);
+            esp_mqtt_client_subscribe(client, "system_iot/+/+/cmd", 1);
             ESP_LOGI(TAG, "Subscribed to cmd topic");
         break;
 
@@ -66,37 +87,16 @@ static void mqtt_event_handler(void *handler_args,    // Additional data
             ESP_LOGI(TAG, "TOPIC: %s", topic);
             ESP_LOGI(TAG, "DATA: %s", data);
 
-            if (strcmp(topic, "system_iot/user_001/esp32/cmd") == 0) {
+            char message[256];
+            int len = snprintf(message, sizeof(message), "<%s=%s>", topic, data);
 
-                if (strcmp(data, "ARM") == 0) {
-                    set_system_armed(true);
-                }
-                else if (strcmp(data, "DISARM") == 0) {
-                    set_system_armed(false);
-                }
-                else if (strcmp(data, "STATUS") == 0) {
-                    char status[64];
-                    snprintf(status, sizeof(status),
-                        "{\"armed\":%d,\"alarm\":%d}",
-                        is_system_armed(),
-                        is_system_in_alarm()
-                    );
-
-                    esp_mqtt_client_publish(
-                        client,
-                        "system_iot/user_001/esp32/status",
-                        status,
-                        0,
-                        1,
-                        0
-                    );
-                }
-                else {
-                    ESP_LOGW(TAG, "Unknown CMD: %s", data);
-                }
+            // 4. Wysyłka przez radio
+            if (len > 0) {
+                lora_send((uint8_t*)message, len);
+                ESP_LOGI(TAG, "LORA send: %s", message);
             }
-            break;
-        }
+                break;
+            }
 
 
         // Logging all other events
@@ -111,13 +111,40 @@ void mqtt_app_start(void)
     ESP_LOGI(TAG, "Initializing MQTT client...");
 
     // Initialization of a configuration structure with broker's ip address, username and password
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = "mqtt://10.85.218.163:1883",
-        .credentials.username = "myuser",
-        .credentials.authentication.password = "1234",
+    extern const uint8_t ca_pem_start[]      asm("_binary_ca_pem_start");
+    extern const uint8_t ca_pem_end[]        asm("_binary_ca_pem_end");
+
+    extern const uint8_t client_crt_start[]  asm("_binary_client_crt_start");
+    extern const uint8_t client_crt_end[]    asm("_binary_client_crt_end");
+
+    extern const uint8_t private_key_start[] asm("_binary_private_key_start");
+    extern const uint8_t private_key_end[]   asm("_binary_private_key_end");
+
+    // W konfiguracji MQTT:
+    // W konfiguracji MQTT (ESP-IDF v5.x):
+    const esp_mqtt_client_config_t mqtt_cfg = {
+        .broker = {
+            .address.uri = "mqtts://a2y5v078fk91mi-ats.iot.eu-central-1.amazonaws.com:8883",
+            .verification = {
+                // Dla CA (Root Certificate) pole nazywa się 'data'
+                .certificate = (const char *)ca_pem_start,
+                .certificate_len = (size_t)(ca_pem_end - ca_pem_start),
+            },
+        },
+        .credentials = {
+            .client_id = "ESP_lora_to_mqtt",
+            .authentication = {
+                // Dla certyfikatu klienta pole nazywa się 'certificate' (bez _pem)
+                .certificate = (const char *)client_crt_start,
+                .certificate_len = (size_t)(client_crt_end - client_crt_start),
+                
+                // Dla klucza prywatnego pole nazywa się 'key' (bez _pem)
+                .key = (const char *)private_key_start,
+                .key_len = (size_t)(private_key_end - private_key_start),
+            },
+        }
     };
 
-    // Initializing a new client with config struct
     client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(
         client,             // Client that the event handler is assigned to
@@ -127,5 +154,5 @@ void mqtt_app_start(void)
     );
 
     esp_mqtt_client_start(client);
-    esp_mqtt_client_subscribe(client, "system_iot/user_001/esp32/cmd", 1);
+    
 }

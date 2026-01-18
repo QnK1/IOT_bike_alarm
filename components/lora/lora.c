@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "config.h"
 
+
 // Pomocnicza funkcja czekająca, aż moduł skończy pracę
 static void wait_for_aux() {
     // Czekaj tak długo, aż AUX będzie w stanie niskim (0 = gotowy)

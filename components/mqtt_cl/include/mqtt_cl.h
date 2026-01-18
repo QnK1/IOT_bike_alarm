@@ -12,4 +12,6 @@ esp_mqtt_client_handle_t mqtt_get_client(void);
 // Check MQTT connection state
 bool mqtt_is_connected(void);
 
+void obtain_time(void);
+
 #endif
