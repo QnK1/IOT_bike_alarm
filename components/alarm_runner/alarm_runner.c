@@ -57,6 +57,7 @@ void alarm_runner_task(void *pvParameter)
 
             } else if (!mqtt_is_connected()) {
                 ESP_LOGW(TAG, "MQTT not connected");
+                ESP_W(TAG, "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
 
             } else {
                 char payload[64];

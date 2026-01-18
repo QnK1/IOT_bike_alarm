@@ -3,6 +3,8 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 
 #include "wifi_ap.h"
 #include "wifi.h"
@@ -13,11 +15,7 @@ static const char *TAG = "WIFI_AP";
 #define KEY_SSID      "wifi_ssid"
 #define KEY_PASS      "wifi_pass"
 
-#define AP_IP_ADDRESS      "192.168.10.1"
-#define AP_NETMASK         "255.255.255.0"
-#define AP_GATEWAY         "192.168.10.1"
-
-    // website
+// website
 const char* html_page = "<html><body><h1>Konfiguracja ESP32</h1><form action='/save' method='POST'>"
                         "SSID: <input name='ssid'><br>PASS: <input name='pass' type='password'><br>"
                         "<input type='submit' value='Zapisz'></form></body></html>";
@@ -26,21 +24,16 @@ static EventGroupHandle_t wifi_ap_event_group;
 #define WIFI_AP_ACTIVE_BIT (1UL << 0)
 
 bool wifi_is_ap_active(void) {
-    if (wifi_ap_event_group == NULL) {
-        return false;
-    }
+    if (wifi_ap_event_group == NULL) return false;
     EventBits_t uxBits = xEventGroupGetBits(wifi_ap_event_group);
     return (uxBits & WIFI_AP_ACTIVE_BIT) != 0;
 }
-void wifi_set_ap_inactive(void){
-    if (wifi_ap_event_group != NULL) {
-        xEventGroupClearBits(wifi_ap_event_group, WIFI_AP_ACTIVE_BIT); 
-    }
-}
-void wifi_set_ap_active(void){
-    if (wifi_ap_event_group != NULL) {
-        xEventGroupSetBits(wifi_ap_event_group, WIFI_AP_ACTIVE_BIT); 
-    }
+
+void wifi_set_ap_active_bit(bool active){
+    if (wifi_ap_event_group == NULL) wifi_ap_event_group = xEventGroupCreate();
+    
+    if (active) xEventGroupSetBits(wifi_ap_event_group, WIFI_AP_ACTIVE_BIT); 
+    else xEventGroupClearBits(wifi_ap_event_group, WIFI_AP_ACTIVE_BIT);
 }   
 
 esp_err_t save_wifi_credentials(const char* ssid, const char* pass) {
@@ -76,7 +69,7 @@ esp_err_t save_post_handler(httpd_req_t *req) {
     buf[ret] = '\0';
 
     char ssid[32] = {0}, pass[64] = {0};
-    // Bardzo uproszczone parsowanie: ssid=...&pass=...
+    // Very simplified parsing: ssid=...&pass=...
     char *p_ssid = strstr(buf, "ssid=");
     char *p_pass = strstr(buf, "&pass=");
 
@@ -85,12 +78,12 @@ esp_err_t save_post_handler(httpd_req_t *req) {
         strcpy(ssid, p_ssid + 5);
         strcpy(pass, p_pass + 6);
         
-        ESP_LOGI(TAG, "Zapisywanie: SSID=%s", ssid);
+        ESP_LOGI(TAG, "Saving: SSID=%s", ssid);
         save_wifi_credentials(ssid, pass);
         
-        httpd_resp_send(req, "Zapisano ustawienia.", HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send(req, "Saved. Rebooting...", HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart(); // Restartujemy, aby wejść w tryb STA
+        esp_restart(); // Restart to re-evaluate Main Logic
     }
     return ESP_OK;
 }
@@ -100,26 +93,26 @@ esp_err_t root_get_handler(httpd_req_t *req)
     return httpd_resp_send(req, html_page, HTTPD_RESP_USE_STRLEN);
 }
 
-void start_ap_server(void) {
-    wifi_set_ap_active();
-    // Tworzymy domyślny interfejs, dostajemy jego uchwyt
-    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
-    esp_netif_ip_info_t ip_info;
+// Renamed from start_ap_server to be the main public entry point for this mode
+void wifi_start_ap_mode(void) {
+    wifi_set_ap_active_bit(true);
     
-    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(ap_netif)); // Zatrzymujemy domyślny DHCP Client (choć w AP jest to serwer, bezpieczniej jest to zrobić)
-    ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif)); // ZATRZYMANIE DOMYŚLNEGO DHCP SERVERA AP
+    // Create AP interface
+    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+    
+    // Config Static IP
+    esp_netif_ip_info_t ip_info;
+    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(ap_netif)); 
+    ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif)); 
 
-    // Ustawienie statycznych adresów IP
     IP4_ADDR(&ip_info.ip, 192, 168, 10, 1);
     IP4_ADDR(&ip_info.gw, 192, 168, 10, 1);
     IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
 
-    // Stosujemy statyczną konfigurację
     ESP_ERROR_CHECK(esp_netif_set_ip_info(ap_netif, &ip_info));
-    
-    // Uruchomienie DHCP Servera AP po ustawieniu statycznego IP
     ESP_ERROR_CHECK(esp_netif_dhcps_start(ap_netif));
     
+    // Init WiFi Driver
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
@@ -128,41 +121,16 @@ void start_ap_server(void) {
     esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
     esp_wifi_start();
 
+    // Start Web Server
     httpd_handle_t server = NULL;   
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-if (httpd_start(&server, &config) == ESP_OK) {
-        // Konfiguracja dla GET
-        httpd_uri_t uri_get = {
-            .uri      = "/",
-            .method   = HTTP_GET,
-            .handler  = root_get_handler
-        };
+    if (httpd_start(&server, &config) == ESP_OK) {
+        httpd_uri_t uri_get = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
         httpd_register_uri_handler(server, &uri_get);
 
-        // Konfiguracja dla POST
-        httpd_uri_t uri_post = {
-            .uri      = "/save",
-            .method   = HTTP_POST,
-            .handler  = save_post_handler 
-        };
+        httpd_uri_t uri_post = { .uri = "/save", .method = HTTP_POST, .handler = save_post_handler };
         httpd_register_uri_handler(server, &uri_post);
     }
-}
-
-void wifi_ap_init(void) {
-    
-    if (wifi_ap_event_group == NULL) {
-        wifi_ap_event_group = xEventGroupCreate();
-    }
-    char ssid[32] = {0}, pass[64] = {0};
-    
-    if (load_wifi_credentials(ssid, pass) == ESP_OK) {
-        wifi_set_ap_inactive();
-        ESP_LOGI(TAG, "Znaleziono dane w NVS. Lacze z %s...", ssid);
-        wifi_init_sta(ssid, pass);
-    } else {
-        ESP_LOGW(TAG, "Brak danych w NVS. Startuje tryb konfiguracji (AP)...");
-        start_ap_server();
-    }
+    ESP_LOGI(TAG, "AP Mode Started. Connect to 'ESP32_Config' and go to 192.168.10.1");
 }
