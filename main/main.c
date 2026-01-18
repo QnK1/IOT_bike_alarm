@@ -15,6 +15,7 @@
 #include "battery.h"
 #include "mqtt_cl.h"
 #include "ble_config.h"
+#include "lora.h"
 
 static const char *TAG = "MAIN";
 
@@ -47,8 +48,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     // 3. Start Monitors
-    xTaskCreate(&button_monitor_task, "button", 2048, NULL, 5, NULL);
+    xTaskCreate(&button_monitor_task, "button", 5120, NULL, 5, NULL);
     xTaskCreate(&blink_task, "blink", 2048, NULL, 5, NULL);
+
+    ESP_ERROR_CHECK(lora_init());
 
     // 4. Decide Mode
     if (should_enter_config_mode()) {
@@ -77,10 +80,8 @@ void app_main(void)
         battery_init();
         
         // Start Tasks
-        xTaskCreate(&battery_monitor_task, "bat_mon", 2048, NULL, 1, NULL);
+        xTaskCreate(&battery_monitor_task, "bat_mon", 5120, NULL, 1, NULL);
         xTaskCreate(&mpu_monitor_task, "mpu_mon", 4096, NULL, 5, NULL);
         xTaskCreate(&alarm_runner_task, "alarm_run", 4096, NULL, 5, NULL);
-        
-        mqtt_app_start();
     }
 }
