@@ -15,13 +15,15 @@
 #define SHORT_HOLD_MIN_MS  1000  // 1 second
 #define SHORT_HOLD_MAX_MS  3000  // 3 seconds
 #define ALARM_EXIT_HOLD_MS 3000  // 3 seconds to silence alarm
-#define RESET_HOLD_MS      5000  // 5 seconds for factory reset
+#define CONFIG_ENTER_MS    7000  // 7 seconds to enter config mode
+#define RESET_HOLD_MS      15000 // 15 seconds for factory reset
 
 static const char *TAG_BTN = "BUTTON_MONITOR";
+#define NVS_NAMESPACE "storage"
+#define KEY_FORCE_CONFIG "force_conf"
 
 static EventGroupHandle_t button_event_group; 
 #define ESP_RESTARTING_BIT (1UL << 0)
-
 
 bool esp_is_restarting(void){
     if (button_event_group == NULL) return false;
@@ -35,6 +37,20 @@ void esp_set_restarting(void){
     }
 }
 
+// Helper to set config flag
+void trigger_config_mode_reboot(void) {
+    nvs_handle_t handle;
+    ESP_LOGW(TAG_BTN, ">>> CONFIG MODE REQUESTED <<<");
+    esp_set_restarting();
+    
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) == ESP_OK) {
+        nvs_set_u8(handle, KEY_FORCE_CONFIG, 1);
+        nvs_commit(handle);
+        nvs_close(handle);
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+}
 
 void button_monitor_task(void *pvParameter)
 {
@@ -81,17 +97,21 @@ void button_monitor_task(void *pvParameter)
                         action_executed = true; 
                     }
                 }
-                // (If disarmed) check for factory reset
+                // (If disarmed) Check for Config Mode OR Factory Reset
                 else if (!is_system_armed()) {
+                    
+                    // Priority 1: Factory Reset (Very Long Hold)
                     if (!action_executed && duration_ms >= RESET_HOLD_MS) {
                         ESP_LOGE(TAG_BTN, ">>> FACTORY RESET TRIGGERED <<<");
-                        
                         esp_set_restarting();
-                        
                         nvs_flash_erase(); 
                         vTaskDelay(pdMS_TO_TICKS(1000));
                         esp_restart();
-                        
+                        action_executed = true;
+                    }
+                    // Priority 2: Config Mode (Long Hold)
+                    else if (!action_executed && duration_ms >= CONFIG_ENTER_MS) {
+                        trigger_config_mode_reboot();
                         action_executed = true;
                     }
                 }

@@ -119,7 +119,7 @@ void mqtt_app_start(void)
 
     // Initializing a new client with config struct
     client = esp_mqtt_client_init(&mqtt_cfg);
-
+!
     esp_mqtt_client_register_event(
         client,             // Client that the event handler is assigned to
         ESP_EVENT_ANY_ID,   // Function handles all possible events
