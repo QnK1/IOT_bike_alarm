@@ -93,35 +93,21 @@ void battery_monitor_task(void *pvParameter) {
             ESP_LOGW(TAG, "BATTERY LOW! Please replace.");
         }
 
-        // Send data through MQTT
-        if (mqtt_is_connected()) {
-            char payload[128];
-            snprintf(payload, sizeof(payload),
-                "{\"voltage_mv\":%lu,\"percentage\":%d}",
-                mv,
-                pct
-            );
+        char payload[128];
+        snprintf(payload, sizeof(payload),
+            "{\"voltage_mv\":%lu,\"percentage\":%d}",
+            mv,
+            pct
+        );
+        char user[64];
+        nvs_load_user_id(user, 64);
+        char message[256];
+        int len = snprintf(message, sizeof(message),
+            "<system_iot/%s/esp32/battery=%s>", user, payload);
+        lora_send((uint8_t*)message, len);
+        ESP_LOGI(TAG, "Battery LORA sent: %s", payload);
 
-            // int msg_id = esp_mqtt_client_publish(
-            //     mqtt_get_client(),
-            //     "system_iot/user_001/esp32/battery",
-            //     payload,
-            //     0,
-            //     1,
-            //     0
-            // );
 
-            char user[64];
-            nvs_load_user_id(user, 64);
-            char message[256];
-            int len = snprintf(message, sizeof(message),
-                "<system_iot/%s/esp32/battery=%s>", user, payload);
-            lora_send((uint8_t*)message, len);
-            ESP_LOGI(TAG, "Battery LORA sent: %s", payload);
-
-        } else {
-            ESP_LOGW(TAG, "MQTT not connected");
-        }
 
         vTaskDelay(pdMS_TO_TICKS(BAT_CHECK_PERIOD_MS));
     }
