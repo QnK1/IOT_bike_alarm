@@ -5,6 +5,8 @@
 #include "gps.h"
 #include "mqtt_cl.h"
 #include "mqtt_client.h"
+#include "lora.h"
+#include "nvs_store.h"
 
 static const char *TAG = "ALARM_RUNNER";
 

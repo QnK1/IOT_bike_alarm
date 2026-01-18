@@ -136,6 +136,7 @@ void clear_system_alarm(void) {
         //     1,
         //     0
         // );
+        // }
 
         char user[64];
         nvs_load_user_id(user, 64);
@@ -144,5 +145,5 @@ void clear_system_alarm(void) {
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: Alarm STOP sent");
         
-    }
+    
 }

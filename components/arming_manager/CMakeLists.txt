@@ -1,3 +1,3 @@
 idf_component_register(SRCS "arming_manager.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES driver wifi lora button_monitor mqtt_cl nvs_store)
+                    REQUIRES driver wifi button_monitor mqtt_cl lora nvs_store)
