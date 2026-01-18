@@ -16,6 +16,7 @@
 #include "battery.h"
 #include "mqtt_cl.h"
 #include "ble_config.h"
+#include "lora.h"
 
 static const char *TAG = "MAIN";
 
@@ -75,40 +76,12 @@ void app_main(void)
     // Start Blink Manager (Visual feedback)
     xTaskCreate(&blink_task, "blink", 2048, NULL, 5, NULL);
 
-    // 4. Decide Mode
-    if (should_enter_config_mode()) {
-        ESP_LOGW(TAG, ">>> ENTERING CONFIGURATION MODE (BLE + AP) <<<");
-        
-        // Start BLE for User Assignment
-        ble_config_init();
-
-        // Start WiFi Access Point for SSID/Pass
-        wifi_start_ap_mode();
-
-        // In config mode, we do NOT start sensors, MQTT, or GPS to save power
-        // The device waits here indefinitely until user resets via AP save or Button
-    } 
-    else {
-        ESP_LOGI(TAG, ">>> ENTERING NORMAL MODE (UNARMED) <<<");
-
-        ble_config_deinit();
-        
-        arming_init();
-
-        // Load WiFi and Connect
-        char ssid[32] = {0}, pass[64] = {0};
-        load_wifi_credentials(ssid, pass); // From wifi_ap.h/c
-        wifi_init_sta(ssid, pass);
-
-        // Init Hardware
-        gps_init(); 
-        battery_init();
-        
-        // Start Tasks
-        xTaskCreate(&battery_monitor_task, "bat_mon", 2048, NULL, 1, NULL);
-        xTaskCreate(&mpu_monitor_task, "mpu_mon", 4096, NULL, 5, NULL);
-        xTaskCreate(&alarm_runner_task, "alarm_run", 4096, NULL, 5, NULL);
-        
-        mqtt_app_start();
+    lora_init();
+    char message[] = "Czesc z ESP32!";
+    while(1) {
+        lora_send((uint8_t*)message, sizeof(message));
+        printf("Wyslano: %s\n", message);
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Wysyłaj co 2 sekundy
     }
+    
 }

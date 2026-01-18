@@ -32,6 +32,7 @@
 #define BAT_MIN_VOLTAGE (3300) // 3.3V (1.1V per cell - empty)
 
 // --- Lora Config ---
+#define LORA_UART_PORT     (UART_NUM_1)
 #define LORA_TX_PIN (GPIO_NUM_17)
 #define LORA_RX_PIN (GPIO_NUM_16)
 #define LORA_M0_PIN (GPIO_NUM_18)  
