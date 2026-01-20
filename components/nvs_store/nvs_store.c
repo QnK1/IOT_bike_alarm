@@ -56,6 +56,25 @@ esp_err_t nvs_load_user_id(char* buffer, size_t max_len) {
     return load_str(KEY_USER_ID, buffer, max_len);
 }
 
+// --- Device ID ---
+
+bool nvs_has_device_id(void) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) return false;
+    size_t required_size;
+    esp_err_t err = nvs_get_str(handle, KEY_DEVICE_ID, NULL, &required_size);
+    nvs_close(handle);
+    return (err == ESP_OK && required_size > 0);
+}
+
+esp_err_t nvs_save_device_id(const char* device_id) {
+    return save_str(KEY_DEVICE_ID, device_id);
+}
+
+esp_err_t nvs_load_device_id(char* buffer, size_t max_len) {
+    return load_str(KEY_DEVICE_ID, buffer, max_len);
+}
+
 // --- WiFi Credentials ---
 
 bool nvs_has_wifi_creds(void) {

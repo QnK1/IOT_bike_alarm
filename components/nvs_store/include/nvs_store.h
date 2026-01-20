@@ -10,6 +10,7 @@
 #define KEY_SSID    "wifi_ssid"
 #define KEY_PASS    "wifi_pass"
 #define KEY_FORCE_CONFIG "force_conf"
+#define KEY_DEVICE_ID    "device_id"
 
 // General NVS Helper
 esp_err_t nvs_store_init(void);
@@ -18,6 +19,11 @@ esp_err_t nvs_store_init(void);
 bool nvs_has_user_id(void);
 esp_err_t nvs_save_user_id(const char* user_id);
 esp_err_t nvs_load_user_id(char* buffer, size_t max_len);
+
+// Device ID
+bool nvs_has_device_id(void);
+esp_err_t nvs_save_device_id(const char* device_id);
+esp_err_t nvs_load_device_id(char* buffer, size_t max_len);
 
 // WiFi Credentials
 bool nvs_has_wifi_creds(void);

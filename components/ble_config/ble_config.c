@@ -25,6 +25,7 @@
 #define CHAR_UUID_SSID    0xFF02 // Read/Write: WiFi SSID
 #define CHAR_UUID_PASS    0xFF03 // Write Only: WiFi Password
 #define CHAR_UUID_ACTION  0xFF04 // Write Only: Send '1' to Save & Reboot
+#define CHAR_UUID_DEV_ID  0xFF05 // Read/Write: Device ID
 
 // Handles index
 enum {
@@ -37,6 +38,8 @@ enum {
     IDX_CHAR_VAL_PASS,
     IDX_CHAR_ACT,
     IDX_CHAR_VAL_ACT,
+    IDX_CHAR_DEV_ID,
+    IDX_CHAR_VAL_DEV_ID,
     IDX_NB,
 };
 
@@ -123,7 +126,13 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
             esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND; 
             esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(uint8_t));
 
-            esp_ble_gap_set_device_name("ESP32_CONFIG_MODE");
+            // --- Set Dynamic Device Name ---
+            char device_id[32] = {0};
+            char ble_name[48] = "ESP32_CONFIG";
+            if (nvs_load_device_id(device_id, sizeof(device_id)) == ESP_OK && strlen(device_id) > 0) {
+                snprintf(ble_name, sizeof(ble_name), "BA_%s", device_id);
+            }
+            esp_ble_gap_set_device_name(ble_name);
             esp_ble_gap_config_adv_data(&adv_data);
 
             // Create Service
@@ -191,6 +200,15 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                                        NULL, NULL);
             } else if (uuid->uuid.uuid16 == CHAR_UUID_ACTION) {
                 s_handle_table[IDX_CHAR_VAL_ACT] = handle;
+
+                // --- 5. DEVICE ID Char (Read/Write Encrypted) ---
+                esp_bt_uuid_t uuid_dev_id = { .len = ESP_UUID_LEN_16, .uuid = { .uuid16 = CHAR_UUID_DEV_ID } };
+                esp_ble_gatts_add_char(s_handle_table[IDX_SVC], &uuid_dev_id,
+                                       ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED,
+                                       ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE,
+                                       NULL, NULL);
+            } else if (uuid->uuid.uuid16 == CHAR_UUID_DEV_ID) {
+                s_handle_table[IDX_CHAR_VAL_DEV_ID] = handle;
                 ESP_LOGI(TAG, "All Characteristics Added");
             }
             break;
@@ -249,6 +267,14 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     esp_restart();
                 }
             }
+            // --- DEVICE ID ---
+            else if (param->write.handle == s_handle_table[IDX_CHAR_VAL_DEV_ID]) {
+                char buf[32] = {0};
+                int len = (param->write.len > 31) ? 31 : param->write.len;
+                memcpy(buf, param->write.value, len);
+                ESP_LOGI(TAG, "Setting Device ID: %s", buf);
+                nvs_save_device_id(buf);
+            }
             break;
         }
         case ESP_GATTS_READ_EVT: {
@@ -271,6 +297,18 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                  rsp.attr_value.handle = param->read.handle;
                  rsp.attr_value.len = strlen(s_temp_ssid);
                  memcpy(rsp.attr_value.value, s_temp_ssid, rsp.attr_value.len);
+                 esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
+                                             ESP_GATT_OK, &rsp);
+             }
+             else if (param->read.handle == s_handle_table[IDX_CHAR_VAL_DEV_ID]) {
+                 char buf[32] = {0};
+                 nvs_load_device_id(buf, sizeof(buf));
+                 
+                 esp_gatt_rsp_t rsp;
+                 memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
+                 rsp.attr_value.handle = param->read.handle;
+                 rsp.attr_value.len = strlen(buf);
+                 memcpy(rsp.attr_value.value, buf, rsp.attr_value.len);
                  esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
                                              ESP_GATT_OK, &rsp);
              }

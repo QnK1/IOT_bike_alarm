@@ -6,6 +6,7 @@
 #include "config.h"
 #include "esp_log.h"
 #include "nvs_store.h"
+#include "arming_manager.h"
 
 static const char *TAG = "LORA";
 
