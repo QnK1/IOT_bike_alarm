@@ -4,6 +4,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "config.h"
+#include "esp_log.h"
+#include "nvs_store.h"
+
+static const char *TAG = "LORA";
 
 // Pomocnicza funkcja czekająca, aż moduł skończy pracę
 static void wait_for_aux() {
@@ -60,4 +64,90 @@ int lora_send(const uint8_t* data, uint32_t len) {
 
 int lora_receive(uint8_t* buffer, uint32_t size, uint32_t timeout_ms) {
     return uart_read_bytes(LORA_UART_PORT, buffer, size, pdMS_TO_TICKS(timeout_ms));
+}
+
+void process_lora_frame(char *raw_data, int len) {
+    // 1. Szukamy ograniczników < oraz >
+    char *start = strchr(raw_data, '<');
+    char *end = strrchr(raw_data, '>'); // szukamy od końca dla pewności
+
+    if (start && end && start < end) {
+        *end = '\0';            // Zamykamy string na znaku '>'
+        char *content = start + 1; // Przeskakujemy znak '<'
+
+        // 2. Rozdzielamy temat od danych na znaku '='
+        char *separator = strchr(content, '=');
+        if (separator) {
+            *separator = '\0';
+            char *topic = content;
+            char *data = separator + 1;
+
+            char username[64] = "a";
+            char device[64] = {0};
+            char command[64] = {0};
+            char username_nvs[64] = "b";
+
+            nvs_load_user_id(username_nvs, sizeof(username_nvs));
+            if(sscanf(topic, "system_iot/%63[^/]/%63[^/]/%63[^/]", username, device, command) != 3){
+                ESP_LOGW(TAG, "Błędny format: %s", topic);
+                return;
+            }
+            if (strcmp(username, username_nvs) == 0 && strcmp(command, "cmd") == 0) {
+                ESP_LOGI(TAG, "Received LORA -> Topic: %s | Data: %s", topic, data);
+                
+                if (strcmp(data, "ARM") == 0) {
+                    set_system_armed(true);
+                }
+                else if (strcmp(data, "DISARM") == 0) {
+                    set_system_armed(false);
+                }
+                else {
+                    ESP_LOGW(TAG, "Unknown CMD: %s", data);
+                }
+
+            } else {
+                ESP_LOGI(TAG, "Received LORA for other user -> Topic: %s | Data: %s", topic, data);
+            }
+        } else {
+            ESP_LOGW(TAG, "Błędny format: brak znaku '='");
+        }
+    } else {
+        ESP_LOGW(TAG, "Niepełna ramka danych (brak < lub >)");
+    }
+}
+
+void lora_receiver_task(void *pvParameters) {
+    static char msg_accumulator[512]; // Tu zbieramy fragmenty
+    static int current_pos = 0;
+    uint8_t temp_buffer[128]; 
+
+    ESP_LOGI(TAG, "Uruchamiam nasłuchiwanie LoRa...");
+
+    while (1) {
+        // 1. Czytamy to, co aktualnie przyszło
+        int len = lora_receive(temp_buffer, sizeof(temp_buffer), 100);
+
+        for (int i = 0; i < len; i++) {
+            char c = temp_buffer[i];
+
+            // 2. Jeśli znajdziemy start, resetujemy bufor (nowa wiadomość)
+            if (c == '<') {
+                current_pos = 0;
+            }
+
+            // 3. Dodajemy znak do akumulatora
+            if (current_pos < sizeof(msg_accumulator) - 1) {
+                msg_accumulator[current_pos++] = c;
+            }
+
+            // 4. Jeśli znajdziemy koniec, przetwarzamy całość
+            if (c == '>') {
+                msg_accumulator[current_pos] = '\0';
+                process_lora_frame(msg_accumulator, current_pos);
+                current_pos = 0; // Gotowe, czekamy na następną
+            }
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 }
