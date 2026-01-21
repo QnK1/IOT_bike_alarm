@@ -85,17 +85,25 @@ void process_lora_frame(char *raw_data, int len) {
             char *data = separator + 1;
 
             char username[64] = "a";
-            char device[64] = {0};
+            char device[64] = "b";
             char command[64] = {0};
-            char username_nvs[64] = "b";
+            char username_nvs[64] = "c";
+            char device_nvs[64] = "d";
 
             nvs_load_user_id(username_nvs, sizeof(username_nvs));
+            nvs_load_device_id(device_nvs, sizeof(device_nvs));
+            
             if(sscanf(topic, "system_iot/%63[^/]/%63[^/]/%63[^/]", username, device, command) != 3){
                 ESP_LOGW(TAG, "Błędny format: %s", topic);
                 return;
             }
             if (strcmp(username, username_nvs) != 0){
                 ESP_LOGI(TAG, "Received LORA for other user -> Topic: %s | Data: %s", topic, data);
+                return;
+            }   
+            if (strcmp(device, device_nvs) != 0){
+                ESP_LOGI(TAG, "Received LORA for other device -> Topic: %s | Data: %s", topic, data);
+                return;
             }   
             if (strcmp(command, "cmd") == 0) {
                 ESP_LOGI(TAG, "Received LORA -> Topic: %s | Data: %s", topic, data);

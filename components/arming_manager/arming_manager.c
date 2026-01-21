@@ -52,9 +52,11 @@ void set_system_armed(bool armed) {
         // }
 
         char user[64];
+        char device[64];
         nvs_load_user_id(user, 64);
+        nvs_load_device_id(device, 64);
         char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/armed={\"state\":\"ARMED\"}>", user);
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/armed={\"state\":\"ARMED\"}>", user, device);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: SYSTEM ARMED sent");
 
@@ -76,9 +78,11 @@ void set_system_armed(bool armed) {
         // }
 
         char user[64];
+        char device[64];
         nvs_load_user_id(user, 64);
+        nvs_load_device_id(device, 64);
         char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/armed={\"state\":\"DISARMED\"}>", user);
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/armed={\"state\":\"DISARMED\"}>", user, device);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: SYSTEM DISARMED sent");
 
@@ -113,9 +117,11 @@ void trigger_system_alarm(void) {
         // }
 
         char user[64];
+        char device[64];
         nvs_load_user_id(user, 64);
+        nvs_load_device_id(device, 64);
         char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/alarm={\"state\":\"START\"}>", user);
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/alarm={\"state\":\"START\"}>", user, device);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: SYSTEM DISARMED sent");
 
@@ -139,9 +145,11 @@ void clear_system_alarm(void) {
         // }
 
         char user[64];
+        char device[64];
         nvs_load_user_id(user, 64);
+        nvs_load_device_id(device, 64);
         char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/esp32/alarm={\"state\":\"STOP\"}>", user);
+        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/alarm={\"state\":\"STOP\"}>", user, device);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: Alarm STOP sent");
         

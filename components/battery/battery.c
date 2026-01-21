@@ -100,14 +100,15 @@ void battery_monitor_task(void *pvParameter) {
             pct
         );
         char user[64];
+        char device[64];
         nvs_load_user_id(user, 64);
+        nvs_load_user_id(device, 64);
+
         char message[256];
         int len = snprintf(message, sizeof(message),
-            "<system_iot/%s/esp32/battery=%s>", user, payload);
+            "<system_iot/%s/%s/battery=%s>", user, device, payload);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "Battery LORA sent: %s", payload);
-
-
 
         vTaskDelay(pdMS_TO_TICKS(BAT_CHECK_PERIOD_MS));
     }

@@ -57,7 +57,9 @@ void alarm_runner_task(void *pvParameter)
                     //     ESP_LOGI(TAG, "MQTT Sent: %s", payload);
                     // }
                     char user[64];
+                    char device[64];
                     nvs_load_user_id(user, 64);
+                    nvs_load_device_id(device, 64);
                     char payload[128];
                     snprintf(payload, sizeof(payload),
                         "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
@@ -67,8 +69,7 @@ void alarm_runner_task(void *pvParameter)
                     );
                     char message[256];
                     int len = snprintf(message, sizeof(message), 
-                        "<system_iot/%s/esp32/gps=%s>", user, payload
-                    );
+                        "<system_iot/%s/%s/gps=%s>", user, device, payload);
                     lora_send((uint8_t*)message, len);
                     ESP_LOGI(TAG, "LORA Sent: %s", payload);
 
@@ -87,14 +88,15 @@ void alarm_runner_task(void *pvParameter)
                 // );
 
                 char user[64];
+                char device[64];
                 nvs_load_user_id(user, 64);
+                nvs_load_device_id(device, 64);
                 char payload[128];
                 snprintf(payload, sizeof(payload),
                         "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
                 char message[256];
                 int len = snprintf(message, sizeof(message), 
-                    "<system_iot/%s/esp32/gps/status=%s>", user, payload
-                );
+                    "<system_iot/%s/%s/gps/status=%s>", user, device, payload);
                 lora_send((uint8_t*)message, len);
                 ESP_LOGW(TAG, "LORA Status Sent: %s", payload);
             }
