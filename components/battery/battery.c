@@ -102,7 +102,7 @@ void battery_monitor_task(void *pvParameter) {
         char user[64];
         char device[64];
         nvs_load_user_id(user, 64);
-        nvs_load_user_id(device, 64);
+        nvs_load_device_id(device, 64);
 
         char message[256];
         int len = snprintf(message, sizeof(message),
