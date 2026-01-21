@@ -92,7 +92,7 @@ void process_lora_frame(char *raw_data, int len) {
 
             nvs_load_user_id(username_nvs, sizeof(username_nvs));
             nvs_load_device_id(device_nvs, sizeof(device_nvs));
-            
+
             if(sscanf(topic, "system_iot/%63[^/]/%63[^/]/%63[^/]", username, device, command) != 3){
                 ESP_LOGW(TAG, "Błędny format: %s", topic);
                 return;
@@ -115,7 +115,7 @@ void process_lora_frame(char *raw_data, int len) {
                     set_system_armed(false);
                 }
 
-            } if (strcmp(command, "threshold") == 0) {
+            } else if (strcmp(command, "threshold") == 0) {
                 ESP_LOGI(TAG, "Received LORA -> Topic: %s | Data: %s", topic, data);
                 int threshold = atoi(data);
                 mpu6050_enable_motion_detection(threshold, 1);
