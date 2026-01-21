@@ -35,27 +35,6 @@ void alarm_runner_task(void *pvParameter)
                          coords.latitude, 
                          coords.longitude,
                          coords.satellites);
-                    
-                    // if (mqtt_is_connected()) {
-                    //     char payload[128];
-                    //     snprintf(payload, sizeof(payload),
-                    //         "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d}",
-                    //         coords.latitude,
-                    //         coords.longitude,
-                    //         coords.satellites
-                    //     );
-
-                    //     esp_mqtt_client_publish(
-                    //         mqtt_get_client(),
-                    //         "system_iot/user_001/esp32/gps",
-                    //         payload,
-                    //         0,
-                    //         1,
-                    //         0
-                    //     );
-
-                    //     ESP_LOGI(TAG, "MQTT Sent: %s", payload);
-                    // }
                     char user[64];
                     char device[64];
                     nvs_load_user_id(user, 64);
@@ -74,18 +53,6 @@ void alarm_runner_task(void *pvParameter)
                     ESP_LOGI(TAG, "LORA Sent: %s", payload);
 
             } else {
-                // char payload[64];
-                // snprintf(payload, sizeof(payload),
-                //         "{\"gps_fix\":false,\"sats\":%d}", coords.satellites);
-
-                // esp_mqtt_client_publish(
-                //     mqtt_get_client(),
-                //     "system_iot/user_001/esp32/gps/status",
-                //     payload,
-                //     0,
-                //     0,
-                //     0
-                // );
 
                 char user[64];
                 char device[64];

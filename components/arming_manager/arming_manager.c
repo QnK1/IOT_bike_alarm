@@ -20,6 +20,7 @@ void arming_init(void) {
         arming_event_group = xEventGroupCreate();
     }
     xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
+    xTaskCreate(&lora_receiver_task, "lora_rec", 8192, NULL, 5, NULL);
 }
 
 bool is_system_armed(void) {
