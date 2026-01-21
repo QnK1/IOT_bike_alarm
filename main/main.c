@@ -83,5 +83,6 @@ void app_main(void)
         xTaskCreate(&battery_monitor_task, "bat_mon", 5120, NULL, 1, NULL);
         xTaskCreate(&mpu_monitor_task, "mpu_mon", 4096, NULL, 5, NULL);
         xTaskCreate(&alarm_runner_task, "alarm_run", 4096, NULL, 5, NULL);
+        xTaskCreate(&lora_receiver_task, "lora_rec", 8192, NULL, 5, NULL);
     }
 }

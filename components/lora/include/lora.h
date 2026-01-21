@@ -13,4 +13,6 @@ int lora_send(const uint8_t* data, uint32_t len);
 // Odbieranie danych
 int lora_receive(uint8_t* buffer, uint32_t size, uint32_t timeout_ms);
 
+void lora_receiver_task(void *pvParameters);
+
 #endif
