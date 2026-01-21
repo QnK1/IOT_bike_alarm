@@ -13,6 +13,7 @@ static EventGroupHandle_t arming_event_group;
 
 #define SYSTEM_ARMED_BIT (1UL << 0)
 #define SYSTEM_ALARM_BIT (1UL << 1)
+#define SEND_STATUS_BIT (1UL << 2)
 
 void arming_init(void) {
     if (arming_event_group == NULL) {
@@ -35,57 +36,35 @@ void set_system_armed(bool armed) {
     if (arming_event_group == NULL) return;
     
     if (armed) {
-        ESP_LOGW(TAG, ">>> SYSTEM ARMED <<<");
         xEventGroupSetBits(arming_event_group, SYSTEM_ARMED_BIT);
         xEventGroupClearBits(arming_event_group, SYSTEM_ALARM_BIT);
-
-        // if (mqtt_is_connected()) {
-        //     esp_mqtt_client_publish(
-        //         mqtt_get_client(),
-        //         "system_iot/user_001/esp32/armed",
-        //         "{\"state\":\"ARMED\"}",
-        //         0,
-        //         1,
-        //         0
-        //     );
-        //     ESP_LOGI(TAG, "MQTT: SYSTEM ARMED sent");
-        // }
-
-        char user[64];
-        char device[64];
-        nvs_load_user_id(user, 64);
-        nvs_load_device_id(device, 64);
-        char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/armed={\"state\":\"ARMED\"}>", user, device);
-        lora_send((uint8_t*)message, len);
-        ESP_LOGI(TAG, "LORA: SYSTEM ARMED sent");
-
+        ESP_LOGW(TAG, ">>> SYSTEM ARMED <<<");
     } else {
-        ESP_LOGW(TAG, ">>> SYSTEM DISARMED <<<");
         xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
-        wifi_reset_retry_logic(); 
+        ESP_LOGW(TAG, ">>> SYSTEM DISARMED <<<");
+    }
+    // Prosimy o wysłanie statusu przez LoRa
+    xEventGroupSetBits(arming_event_group, SEND_STATUS_BIT);
+}
 
-        // if (mqtt_is_connected()) {
-        //     esp_mqtt_client_publish(
-        //         mqtt_get_client(),
-        //         "system_iot/user_001/esp32/armed",
-        //         "{\"state\":\"DISARMED\"}",
-        //         0,
-        //         1,
-        //         0
-        //     );
-        //     ESP_LOGI(TAG, "MQTT: SYSTEM DISARMED sent");
-        // }
+void arming_lora_sender_task(void *pv) {
+    while(1) {
+        // Czekaj aż pojawi się bit prośby o wysyłkę
+        xEventGroupWaitBits(arming_event_group, SEND_STATUS_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+        
+        vTaskDelay(pdMS_TO_TICKS(500)); // Bezpieczny odstęp
 
-        char user[64];
-        char device[64];
+        char user[64], device[64], message[256];
         nvs_load_user_id(user, 64);
         nvs_load_device_id(device, 64);
-        char message[256];
-        int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/armed={\"state\":\"DISARMED\"}>", user, device);
-        lora_send((uint8_t*)message, len);
-        ESP_LOGI(TAG, "LORA: SYSTEM DISARMED sent");
+        
+        bool armed = is_system_armed();
+        int len = snprintf(message, sizeof(message), 
+                  "<system_iot/%s/%s/armed={\"state\":\"%s\"}>", 
+                  user, device, armed ? "ARMED" : "DISARMED");
 
+        ESP_LOGI(TAG, "Sending: %s", message);
+        lora_send((uint8_t*)message, len);
     }
 }
 
@@ -101,21 +80,6 @@ void trigger_system_alarm(void) {
     if (arming_event_group == NULL) return;
     if (is_system_armed()) {
         ESP_LOGE(TAG, "!!! ALARM TRIGGERED !!!");
-
-        // if (mqtt_is_connected()) {
-
-        //     esp_mqtt_client_publish(
-        //         mqtt_get_client(),
-        //         "system_iot/user_001/esp32/alarm",
-        //         "{\"state\":\"START\"}",
-        //         0,
-        //         1,
-        //         0
-        //     );
-
-        //     ESP_LOGI(TAG, "MQTT Alarm START sent");
-        // }
-
         char user[64];
         char device[64];
         nvs_load_user_id(user, 64);
@@ -131,19 +95,6 @@ void trigger_system_alarm(void) {
 
 void clear_system_alarm(void) {
     set_system_armed(false);
-
-        // if (mqtt_is_connected()) {
-
-        // esp_mqtt_client_publish(
-        //     mqtt_get_client(),
-        //     "system_iot/user_001/esp32/alarm",
-        //     "{\"state\":\"STOP\"}",
-        //     0,
-        //     1,
-        //     0
-        // );
-        // }
-
         char user[64];
         char device[64];
         nvs_load_user_id(user, 64);
@@ -152,6 +103,4 @@ void clear_system_alarm(void) {
         int len = snprintf(message, sizeof(message), "<system_iot/%s/%s/alarm={\"state\":\"STOP\"}>", user, device);
         lora_send((uint8_t*)message, len);
         ESP_LOGI(TAG, "LORA: Alarm STOP sent");
-        
-    
 }

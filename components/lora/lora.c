@@ -16,6 +16,7 @@ static void wait_for_aux() {
     // Czekaj tak długo, aż AUX będzie w stanie niskim (0 = gotowy)
     while (gpio_get_level(LORA_AUX_PIN)) {
         vTaskDelay(pdMS_TO_TICKS(100));
+        ESP_LOGW(TAG, "waiting for AUX");
     }
 }
 
@@ -55,6 +56,8 @@ esp_err_t lora_init(void) {
     gpio_set_level(LORA_M1_PIN, 0);
 
     wait_for_aux(); // Czekaj aż moduł wystartuje
+    xTaskCreate(&arming_lora_sender_task, "arming_lora_send", 4096, NULL, 5, NULL);
+
     return ESP_OK;
 }
 

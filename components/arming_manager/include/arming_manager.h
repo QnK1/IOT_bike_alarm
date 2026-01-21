@@ -15,5 +15,6 @@ void set_system_armed(bool armed);
 void toggle_arming_state(void);   // <--- Added this back
 void trigger_system_alarm(void);  
 void clear_system_alarm(void);    
+void arming_lora_sender_task(void *pv);
 
 #endif
