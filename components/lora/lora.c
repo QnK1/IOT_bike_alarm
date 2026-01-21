@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "nvs_store.h"
 #include "arming_manager.h"
+#include "mpu6050.h"
 
 static const char *TAG = "LORA";
 
@@ -93,7 +94,10 @@ void process_lora_frame(char *raw_data, int len) {
                 ESP_LOGW(TAG, "Błędny format: %s", topic);
                 return;
             }
-            if (strcmp(username, username_nvs) == 0 && strcmp(command, "cmd") == 0) {
+            if (strcmp(username, username_nvs) != 0){
+                ESP_LOGI(TAG, "Received LORA for other user -> Topic: %s | Data: %s", topic, data);
+            }   
+            if (strcmp(command, "cmd") == 0) {
                 ESP_LOGI(TAG, "Received LORA -> Topic: %s | Data: %s", topic, data);
                 
                 if (strcmp(data, "ARM") == 0) {
@@ -102,12 +106,13 @@ void process_lora_frame(char *raw_data, int len) {
                 else if (strcmp(data, "DISARM") == 0) {
                     set_system_armed(false);
                 }
-                else {
-                    ESP_LOGW(TAG, "Unknown CMD: %s", data);
-                }
 
+            } if (strcmp(command, "threshold") == 0) {
+                ESP_LOGI(TAG, "Received LORA -> Topic: %s | Data: %s", topic, data);
+                int threshold = atoi(data);
+                mpu6050_enable_motion_detection(threshold, 1);
             } else {
-                ESP_LOGI(TAG, "Received LORA for other user -> Topic: %s | Data: %s", topic, data);
+                ESP_LOGI(TAG, "Unknown CMD: %s", command);
             }
         } else {
             ESP_LOGW(TAG, "Błędny format: brak znaku '='");
