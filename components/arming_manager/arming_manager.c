@@ -21,6 +21,7 @@ void arming_init(void) {
     }
     xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
     xTaskCreate(&lora_receiver_task, "lora_rec", 8192, NULL, 5, NULL);
+    xTaskCreate(&arming_lora_sender_task, "arming_lora_send", 4096, NULL, 5, NULL);
 }
 
 bool is_system_armed(void) {
@@ -51,6 +52,9 @@ void set_system_armed(bool armed) {
 void arming_lora_sender_task(void *pv) {
     while(1) {
         // Czekaj aż pojawi się bit prośby o wysyłkę
+        while (arming_event_group == NULL) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
         xEventGroupWaitBits(arming_event_group, SEND_STATUS_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
         
         vTaskDelay(pdMS_TO_TICKS(500)); // Bezpieczny odstęp

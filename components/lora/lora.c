@@ -56,8 +56,6 @@ esp_err_t lora_init(void) {
     gpio_set_level(LORA_M1_PIN, 0);
 
     wait_for_aux(); // Czekaj aż moduł wystartuje
-    xTaskCreate(&arming_lora_sender_task, "arming_lora_send", 4096, NULL, 5, NULL);
-
     return ESP_OK;
 }
 
