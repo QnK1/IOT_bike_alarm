@@ -94,7 +94,7 @@ void process_lora_frame(char *raw_data, int len) {
             nvs_load_device_id(device_nvs, sizeof(device_nvs));
 
             if(sscanf(topic, "system_iot/%63[^/]/%63[^/]/%63[^/]", username, device, command) != 3){
-                ESP_LOGW(TAG, "Błędny format: %s", topic);
+                ESP_LOGW(TAG, "Invalid format: %s", topic);
                 return;
             }
             if (strcmp(username, username_nvs) != 0){
@@ -123,10 +123,10 @@ void process_lora_frame(char *raw_data, int len) {
                 ESP_LOGI(TAG, "Unknown CMD: %s", command);
             }
         } else {
-            ESP_LOGW(TAG, "Błędny format: brak znaku '='");
+            ESP_LOGW(TAG, "Invalid format: missing character '='");
         }
     } else {
-        ESP_LOGW(TAG, "Niepełna ramka danych (brak < lub >)");
+        ESP_LOGW(TAG, "Incomplete data frame (missing < or >)");
     }
 }
 
