@@ -38,7 +38,7 @@ esp_err_t lora_init(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    ESP_ERROR_CHECK(uart_driver_install(LORA_UART_PORT, 1024 * 2, 0, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(LORA_UART_PORT, 1024 * 4, 0, 0, NULL, ESP_INTR_FLAG_IRAM));
     ESP_ERROR_CHECK(uart_param_config(LORA_UART_PORT, &uart_config));
     ESP_ERROR_CHECK(uart_set_pin(LORA_UART_PORT, LORA_TX_PIN, LORA_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 

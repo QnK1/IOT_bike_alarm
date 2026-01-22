@@ -20,7 +20,7 @@ void arming_init(void) {
         arming_event_group = xEventGroupCreate();
     }
     xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
-    xTaskCreate(&lora_receiver_task, "lora_rec", 8192, NULL, 5, NULL);
+    xTaskCreate(&lora_receiver_task, "lora_rec", 8192, NULL, 6, NULL);
     xTaskCreate(&arming_lora_sender_task, "arming_lora_send", 4096, NULL, 5, NULL);
 }
 
@@ -39,10 +39,12 @@ void set_system_armed(bool armed) {
     
     if (armed) {
         xEventGroupSetBits(arming_event_group, SYSTEM_ARMED_BIT);
-        xEventGroupClearBits(arming_event_group, SYSTEM_ALARM_BIT);
         ESP_LOGW(TAG, ">>> SYSTEM ARMED <<<");
     } else {
         xEventGroupClearBits(arming_event_group, SYSTEM_ARMED_BIT | SYSTEM_ALARM_BIT);
+        if (is_system_in_alarm()){
+            clear_system_alarm();
+        }
         ESP_LOGW(TAG, ">>> SYSTEM DISARMED <<<");
     }
     // Prosimy o wysłanie statusu przez LoRa

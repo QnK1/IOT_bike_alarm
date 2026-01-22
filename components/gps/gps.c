@@ -34,8 +34,12 @@ typedef struct {
 
 #pragma pack(pop)
 
+static TaskHandle_t s_gps_task_handle = NULL;
+
 void gps_sleep(void) {
     ESP_LOGI(TAG, "GPS: Sending Sleep Command...");
+    if (s_gps_task_handle != NULL) vTaskSuspend(s_gps_task_handle);
+
 
     // 1. SEND SLEEP COMMAND (Backup Mode)
     // We ask the module to enter Backup Mode immediately.
@@ -88,6 +92,7 @@ void gps_wake(void) {
     // Give the GPS crystal time to stabilize and CPU to boot.
     vTaskDelay(pdMS_TO_TICKS(500));
     
+    if (s_gps_task_handle != NULL) vTaskResume(s_gps_task_handle);
     ESP_LOGI(TAG, "GPS Awake.");
 }
 
@@ -148,7 +153,7 @@ void gps_init(void) {
     ESP_ERROR_CHECK(uart_driver_install(GPS_UART_PORT, GPS_RX_BUF_SIZE * 2, 0, 0, NULL, 0));
 
     // Create the background parsing task
-    xTaskCreate(gps_task, "gps_task", GPS_TASK_STACK, NULL, 10, NULL);
+    xTaskCreate(gps_task, "gps_task", GPS_TASK_STACK, NULL, 4, &s_gps_task_handle);
     ESP_LOGI(TAG, "GPS Initialized.");
 
     // Allow time for GPS to output first messages before sleeping
