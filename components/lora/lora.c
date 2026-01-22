@@ -73,8 +73,6 @@ int lora_send(const uint8_t* data, uint32_t len) {
         ESP_LOGI(TAG, "Waiting for send, aux");
         ESP_LOGI(TAG, "Sending");
         int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
-        // Opcjonalnie: poczekaj aż AUX wróci do High po wysłaniu
-        // wait_for_aux(); 
         xSemaphoreGive(lora_uart_mutex);
         return sent;
     }
