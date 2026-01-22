@@ -71,9 +71,9 @@ void app_main(void)
         arming_init();
 
         // Load WiFi and Connect
-        char ssid[32] = {0}, pass[64] = {0};
-        nvs_load_wifi_creds(ssid, 32, pass, 64);
-        wifi_init_sta(ssid, pass);
+        // char ssid[32] = {0}, pass[64] = {0};
+        // nvs_load_wifi_creds(ssid, 32, pass, 64);
+        // wifi_init_sta(ssid, pass);
 
         // Init Hardware
         gps_init(); 

@@ -8,19 +8,26 @@
 #include "nvs_store.h"
 #include "arming_manager.h"
 #include "mpu6050.h"
+#include "freertos/semphr.h"
 
 static const char *TAG = "LORA";
+static SemaphoreHandle_t lora_uart_mutex = NULL;
 
 // Pomocnicza funkcja czekająca, aż moduł skończy pracę
 static void wait_for_aux() {
     // Czekaj tak długo, aż AUX będzie w stanie niskim (0 = gotowy)
+    ESP_LOGW(TAG, "checking AUX");
     while (gpio_get_level(LORA_AUX_PIN)) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-        ESP_LOGW(TAG, "waiting for AUX");
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
 esp_err_t lora_init(void) {
+
+    if (lora_uart_mutex == NULL) {
+        lora_uart_mutex = xSemaphoreCreateMutex();
+    }
+
     // 1. Konfiguracja UART
     uart_config_t uart_config = {
         .baud_rate = LORA_BAUD_RATE,
@@ -60,13 +67,29 @@ esp_err_t lora_init(void) {
 }
 
 int lora_send(const uint8_t* data, uint32_t len) {
-    wait_for_aux(); // Nie wysyłaj, jeśli moduł jest zajęty
-    int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
-    return sent;
+    ESP_LOGI(TAG, "Waiting for send");
+    wait_for_aux(); 
+    if (xSemaphoreTake(lora_uart_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+        ESP_LOGI(TAG, "Waiting for send, aux");
+        ESP_LOGI(TAG, "Sending");
+        int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
+        // Opcjonalnie: poczekaj aż AUX wróci do High po wysłaniu
+        // wait_for_aux(); 
+        xSemaphoreGive(lora_uart_mutex);
+        return sent;
+    }
+    ESP_LOGE("LORA", "Could not get UART Mutex for sending!");
+    return -1;
 }
 
 int lora_receive(uint8_t* buffer, uint32_t size, uint32_t timeout_ms) {
-    return uart_read_bytes(LORA_UART_PORT, buffer, size, pdMS_TO_TICKS(timeout_ms));
+    if (xSemaphoreTake(lora_uart_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        int len = uart_read_bytes(LORA_UART_PORT, buffer, size, pdMS_TO_TICKS(timeout_ms));
+        vTaskDelay(pdMS_TO_TICKS(10));
+        xSemaphoreGive(lora_uart_mutex);
+        return len;
+    }
+    return 0;
 }
 
 void process_lora_frame(char *raw_data, int len) {
@@ -141,10 +164,9 @@ void lora_receiver_task(void *pvParameters) {
     while (1) {
         // 1. Czytamy to, co aktualnie przyszło
         int len = lora_receive(temp_buffer, sizeof(temp_buffer), 100);
-
+        
         for (int i = 0; i < len; i++) {
             char c = temp_buffer[i];
-
             // 2. Jeśli znajdziemy start, resetujemy bufor (nowa wiadomość)
             if (c == '<') {
                 current_pos = 0;

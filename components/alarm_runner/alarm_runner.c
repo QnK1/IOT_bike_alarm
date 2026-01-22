@@ -69,7 +69,7 @@ void alarm_runner_task(void *pvParameter)
             }
 
             // 1 second delay between logs/updates
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(10000));
 
         } else {
             // System is NOT in alarm
