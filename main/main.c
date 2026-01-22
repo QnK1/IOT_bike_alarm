@@ -51,9 +51,6 @@ void process_lora_frame(char *raw_data, int len) {
                 0
             );
 
-
-
-
         } else {
             ESP_LOGW(TAG, "Błędny format: brak znaku '='");
         }
@@ -89,6 +86,7 @@ void lora_receiver_task(void *pvParameters) {
             // 4. Jeśli znajdziemy koniec, przetwarzamy całość
             if (c == '>') {
                 msg_accumulator[current_pos] = '\0';
+                ESP_LOGI(TAG, "Odebrano %s", msg_accumulator);
                 process_lora_frame(msg_accumulator, current_pos);
                 current_pos = 0; // Gotowe, czekamy na następną
             }

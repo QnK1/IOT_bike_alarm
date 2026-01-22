@@ -4,17 +4,23 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "config.h"
+#include "esp_log.h"
 
+static const char *TAG = "LORA";
+static SemaphoreHandle_t lora_uart_mutex = NULL;
 
 // Pomocnicza funkcja czekająca, aż moduł skończy pracę
 static void wait_for_aux() {
     // Czekaj tak długo, aż AUX będzie w stanie niskim (0 = gotowy)
     while (gpio_get_level(LORA_AUX_PIN)) {
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
 esp_err_t lora_init(void) {
+    if (lora_uart_mutex == NULL) {
+        lora_uart_mutex = xSemaphoreCreateMutex();
+    }
     // 1. Konfiguracja UART
     uart_config_t uart_config = {
         .baud_rate = LORA_BAUD_RATE,
@@ -54,11 +60,26 @@ esp_err_t lora_init(void) {
 }
 
 int lora_send(const uint8_t* data, uint32_t len) {
-    wait_for_aux(); // Nie wysyłaj, jeśli moduł jest zajęty
-    int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
-    return sent;
+    ESP_LOGI(TAG, "Waiting for send");
+    if (xSemaphoreTake(lora_uart_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+        ESP_LOGI(TAG, "Waiting for send, aux");
+        wait_for_aux(); 
+        ESP_LOGI(TAG, "Sending");
+        int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
+        // Opcjonalnie: poczekaj aż AUX wróci do High po wysłaniu
+        // wait_for_aux(); 
+        xSemaphoreGive(lora_uart_mutex);
+        return sent;
+    }
+    ESP_LOGE("LORA", "Could not get UART Mutex for sending!");
+    return -1;
 }
 
 int lora_receive(uint8_t* buffer, uint32_t size, uint32_t timeout_ms) {
-    return uart_read_bytes(LORA_UART_PORT, buffer, size, pdMS_TO_TICKS(timeout_ms));
+    if (xSemaphoreTake(lora_uart_mutex, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        int len = uart_read_bytes(LORA_UART_PORT, buffer, size, pdMS_TO_TICKS(timeout_ms));
+        xSemaphoreGive(lora_uart_mutex);
+        return len;
+    }
+    return 0;
 }
