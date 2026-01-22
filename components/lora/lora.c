@@ -31,7 +31,7 @@ esp_err_t lora_init(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    ESP_ERROR_CHECK(uart_driver_install(LORA_UART_PORT, 1024 * 2, 0, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(LORA_UART_PORT, 1024 * 4, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(LORA_UART_PORT, &uart_config));
     ESP_ERROR_CHECK(uart_set_pin(LORA_UART_PORT, LORA_TX_PIN, LORA_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
@@ -61,9 +61,9 @@ esp_err_t lora_init(void) {
 
 int lora_send(const uint8_t* data, uint32_t len) {
     ESP_LOGI(TAG, "Waiting for send");
+    wait_for_aux(); 
     if (xSemaphoreTake(lora_uart_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
         ESP_LOGI(TAG, "Waiting for send, aux");
-        wait_for_aux(); 
         ESP_LOGI(TAG, "Sending");
         int sent = uart_write_bytes(LORA_UART_PORT, (const char*)data, len);
         // Opcjonalnie: poczekaj aż AUX wróci do High po wysłaniu
